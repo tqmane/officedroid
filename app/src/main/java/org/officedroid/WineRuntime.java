@@ -127,19 +127,27 @@ public final class WineRuntime {
         return env;
     }
     public static synchronized String run(Context context, int seconds, String... arguments) throws Exception {
+        if (arguments.length == 0) throw new IllegalArgumentException("A Wine command is required");
         File runtime = prepare(context);
         ArrayList<String> command = new ArrayList<>();
         command.add(context.getApplicationInfo().nativeLibraryDir + "/libwine.so");
         Collections.addAll(command, arguments);
         File log = new File(context.getFilesDir(), "wine-last.log");
-        ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(log);
+        ProcessBuilder builder = new ProcessBuilder(command).directory(context.getFilesDir())
+                .redirectErrorStream(true).redirectOutput(log);
         builder.environment().putAll(environment(context, runtime));
+        // The Android JNI entry point also initializes Wine without the Linux preloader.
+        // Version/help must still go through Wine's command-line parser.
+        if (arguments.length > 0 && !arguments[0].equals("--version") && !arguments[0].equals("--help")) {
+            builder.environment().put("WINELOADERNOEXEC", "1");
+        }
         Process process = builder.start();
         if (!process.waitFor(seconds, TimeUnit.SECONDS)) {
             process.destroyForcibly();
             throw new IOException("Wine timeout; " + text(new FileInputStream(log)));
         }
         String output = text(new FileInputStream(log));
+        android.util.Log.i("OfficeDroidWine", "Command " + arguments[0] + " exited " + process.exitValue() + ": " + output);
         if (process.exitValue() != 0) throw new IOException("Wine exit " + process.exitValue() + ": " + output);
         return output;
     }

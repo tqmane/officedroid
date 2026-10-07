@@ -11,11 +11,15 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class WineRuntimeTest {
+    @Test public void wineVersionRunsInApplicationSandbox() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
+        assertTrue(WineRuntime.run(context, 30, "--version").contains("wine-11.0"));
+    }
     @Test public void wineBootAndWindowsCommand() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
         try {
-            assertTrue(WineRuntime.run(context, 30, "--version").contains("wine-11.0"));
             WineRuntime.run(context, 120, "wineboot", "--init");
             assertTrue(new File(MainActivity.prefix(context), "system.reg").isFile());
             File output = new File(MainActivity.prefix(context), "drive_c/officedroid-smoke.txt");

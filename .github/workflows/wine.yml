@@ -79,6 +79,7 @@ jobs:
         if: always()
         with:
           name: wine-${{ matrix.abi }}-results
+          include-hidden-files: true
           path: |
             .build/logs/
             .build/wine-*/config.log

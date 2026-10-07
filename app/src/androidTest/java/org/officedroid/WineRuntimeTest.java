@@ -21,7 +21,8 @@ public class WineRuntimeTest {
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
         File runtime = WineRuntime.prepare(context);
         try {
-            assertTrue(WineRuntime.run(context, 90, new File(runtime, "https-probe.exe").getAbsolutePath()).contains("TLS_OK"));
+            String output = WineRuntime.run(context, 90, new File(runtime, "https-probe.exe").getAbsolutePath());
+            assertTrue("HTTPS probe did not report certificate validation success: " + output, output.contains("TLS_OK"));
         } finally {
             WineRuntime.stop(context);
         }

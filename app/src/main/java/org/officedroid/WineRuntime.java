@@ -40,6 +40,15 @@ public final class WineRuntime {
             return output.toString("UTF-8");
         }
     }
+    private static String logTail(File log) throws IOException {
+        try (RandomAccessFile input = new RandomAccessFile(log, "r")) {
+            int size = (int)Math.min(input.length(), 65536);
+            byte[] bytes = new byte[size];
+            input.seek(input.length() - size);
+            input.readFully(bytes);
+            return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+        }
+    }
     public static synchronized File prepare(Context context) throws Exception {
         String abi = Build.SUPPORTED_ABIS[0];
         JSONObject layout = new JSONObject(text(context.getAssets().open("layout-" + abi + ".json")));
@@ -132,7 +141,7 @@ public final class WineRuntime {
         env.put("LD_LIBRARY_PATH", nativeDirectory + ":" + dlls + "/" + machine + "-unix:"
                 + new File(directory, abi + "/lib").getAbsolutePath());
         env.put("LANG", "en_US.UTF-8");
-        env.put("WINEDEBUG", "warn+all");
+        env.put("WINEDEBUG", "err+all,warn+winhttp,warn+secur32");
         env.put("OFFICEDROID_DEBUG_INIT", "1");
         // Do not prompt to download optional Mono/Gecko during a bounded smoke test.
         env.put("WINEDLLOVERRIDES", "mscoree,mshtml=");
@@ -151,9 +160,9 @@ public final class WineRuntime {
         Process process = builder.start();
         if (!process.waitFor(seconds, TimeUnit.SECONDS)) {
             process.destroyForcibly();
-            throw new IOException("Wine timeout; " + text(new FileInputStream(log)));
+            throw new IOException("Wine timeout; " + logTail(log));
         }
-        String output = text(new FileInputStream(log));
+        String output = logTail(log);
         android.util.Log.i("OfficeDroidWine", "Command " + arguments[0] + " exited " + process.exitValue() + ": " + output);
         if (process.exitValue() != 0) throw new IOException("Wine exit " + process.exitValue() + ": " + output);
         return output;

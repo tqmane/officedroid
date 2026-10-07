@@ -1,0 +1,18 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: open the Android device with an NT object path
+
+The driver registers its symbolic link under \??\WineAndroid. NtCreateFile
+does not translate the Win32 \\.\ namespace; using that path silently makes
+every window/surface ioctl fail with ENOENT. Use the registered NT path.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/device.c
++++ b/dlls/wineandroid.drv/device.c
+@@ -1185,7 +1185,7 @@
+ static int android_ioctl( enum android_ioctl code, void *in, DWORD in_size, void *out, DWORD *out_size )
+ {
+-    static const WCHAR deviceW[] = {'\\','\\','.','\\','W','i','n','e','A','n','d','r','o','i','d',0 };
++    static const WCHAR deviceW[] = {'\\','?','?','\\','W','i','n','e','A','n','d','r','o','i','d',0 };
+     static HANDLE device;
+     IO_STATUS_BLOCK iosb;
+     NTSTATUS status;

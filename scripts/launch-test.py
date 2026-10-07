@@ -57,7 +57,7 @@ for activity, title in [('MainActivity', 'OfficeDroid'), ('WordActivity', 'Word 
             raise RuntimeError(f'{activity} is not resumed')
         results.append({'activity': activity, 'visible': True, 'native_probe': True,
                         'wine_version_from_button': with_wine and activity == 'MainActivity'})
-        print(f'PASS: {activity} visible with successful native startup', flush=True)
+        print(f'PASS: Android diagnostic launcher {activity} displayed its native probe result', flush=True)
     finally:
         (output / f'{activity}.png').write_bytes(adb('exec-out', 'screencap', '-p'))
 

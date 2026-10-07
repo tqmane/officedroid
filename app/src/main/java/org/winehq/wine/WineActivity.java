@@ -572,6 +572,7 @@ public class WineActivity extends Activity
             if (is_client) return false;  // let the whole window handle it
             if (window.parent != null && window.parent != desktop_window) return false;  // let the parent handle it
 
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) requestFocus();
             int[] pos = new int[2];
             window.get_event_pos( event, pos );
             Log.i( LOGTAG, String.format( "view touch event win %08x action %d pos %d,%d buttons %04x view %d,%d",

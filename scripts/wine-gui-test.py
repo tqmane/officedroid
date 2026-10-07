@@ -70,9 +70,12 @@ try:
     adb('shell', 'run-as', 'org.officedroid', 'rm', '-f', 'files/prefix/drive_c/gui-smoke.txt')
     window = open_editor()
     time.sleep(2)
+    assert 'NOTEPAD' in capture('opened'), 'Win32 window must paint its title before keyboard tests'
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
     adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
+    time.sleep(1)
+    assert 'OFFICEDROIDGUI' in capture('typed'), 'Keyboard input must visibly appear in the document'
     adb('shell', 'input', 'keycombination', '113', '29')  # Select text
     adb('shell', 'input', 'keycombination', '113', '31')  # Ctrl+C
     adb('shell', 'input', 'keyevent', '123')  # End

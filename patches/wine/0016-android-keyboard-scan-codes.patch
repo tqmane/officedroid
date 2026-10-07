@@ -1,0 +1,29 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: fix shifted modifier and punctuation scan codes
+
+VK_OEM_NEC_EQUAL and VK_OEM_FJ_JISHO are aliases for 0x92. Two array entries
+shifted all later scan codes, mapping Ctrl to right Shift and left Shift to zero.
+Android device traces show those incorrect scan codes during editing shortcuts.
+Keep one entry per virtual key and assert the table covers exactly 256 keys.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/keyboard.c
++++ b/dlls/wineandroid.drv/keyboard.c
+@@ -411,8 +411,7 @@
+     0,     /* 0x8f undefined */
+     0,     /* VK_NUMLOCK */
+     0,     /* VK_SCROLL */
+-    0x10d, /* VK_OEM_NEC_EQUAL */
+-    0,     /* VK_OEM_FJ_JISHO */
++    0x10d, /* VK_OEM_NEC_EQUAL / VK_OEM_FJ_JISHO (both 0x92) */
+     0,     /* VK_OEM_FJ_MASSHOU */
+     0,     /* VK_OEM_FJ_TOUROKU */
+     0,     /* VK_OEM_FJ_LOYA */
+@@ -523,6 +522,7 @@
+     0x59,  /* VK_OEM_CLEAR */
+     0,     /* 0xff undefined */
+ };
++C_ASSERT(ARRAY_SIZE(vkey_to_scancode) == 256);
+ 
+ static const struct
+ {

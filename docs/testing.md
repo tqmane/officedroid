@@ -89,6 +89,17 @@ irrelevant warning output. The device runner logged completion of the 32-bit
 command test, but failed to deliver its final instrumentation result; this also
 requires a clean rerun rather than counting as a passed CI test.
 
+Run [37701859586](https://github.com/tqmane/officedroid/actions/runs/37701859586)
+at `d7c1f70` passes all seven instrumented tests, including HTTPS certificate
+validation and both Windows command architectures. Patch 0014 also creates
+Android TextureViews and delivers keyboard events, but the screenshot is still
+blank: the legacy gralloc module rejects modern graphics handles with `EINVAL`.
+Patch 0015 transfers a Wine CPU section to the JVM process and presents it using
+public `ANativeWindow_lock` / `ANativeWindow_unlockAndPost` APIs. Patch 0016 fixes
+an extra virtual-key table entry that shifted Ctrl and Shift scan codes.
+These GUI changes require a new device run. TextureView existence alone is not
+rendering proof; the test now also requires visible Notepad title text before input.
+
 The GUI test requires visibly rendered keyboard input, copy/paste, undo, a saved
 file and a cold restart displaying the saved content. It removes its previous
 test file first. OCR output and screenshots are retained for review. This is

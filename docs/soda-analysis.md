@@ -28,3 +28,20 @@ No Office patch is claimed necessary or sufficient without an A/B experiment.
 No patch set has been imported yet. Future imports must record source commit,
 license, dependencies, patch application result and a regression test. Authentication
 changes must preserve real Microsoft authentication and licensing.
+
+Examined API details for later failure-driven imports:
+
+- `kernel32-office-compat.mypatch` exports `FindPackagesByPackageFamily` through
+  kernel32/kernelbase and implements it using existing package queries. It also
+  changes `VerifyVersionInfoW` product-type conditions. These need Windows
+  reference behavior tests before transplanting them.
+- `office-runtime-apis.mypatch` builds on that patch: it changes
+  `SetFileShortNameW` from an unsupported stub to an NT file-information call,
+  exports `SetThreadpoolTimerEx`, and adds sparse-package queries controlled by
+  `WINE_SPARSE_PACKAGE_*`. The short-name fallback returns success when the host
+  filesystem cannot implement it; that does not establish correct file naming.
+- `msi-c2r-product-code.mypatch` adds Click-to-Run registry fallback lookup to
+  `MsiGetProductCode`. This is application discovery after installation, not an
+  implementation of the Click-to-Run installation service.
+
+These are candidates, not imported dependencies or evidence that ODT works.

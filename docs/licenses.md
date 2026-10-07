@@ -6,7 +6,7 @@ at `db11d0fe6a169c457e23d007e20404643d067aa8` and remains LGPL-2.1-or-later.
 Its copyright header and LGPL text are preserved in the source and APK assets.
 Downloaded SDKs, toolchains and Wine source/build outputs are excluded from Git.
 The default diagnostic APK excludes Wine. The optional Wine APK contains Wine,
-its bundled libraries/fonts, and FreeType, with upstream notices in
+its bundled libraries/fonts, FreeType, GnuTLS, Nettle and GMP, with upstream notices in
 `assets/licenses/`. No APK includes Microsoft binaries. Gradle's wrapper remains
 under its Apache-2.0 source notice.
 
@@ -35,7 +35,7 @@ Portions of this software are copyright © 1996–2024 The FreeType Project
 Wine workflow artifacts include the exact unmodified Wine, FreeType, GnuTLS, Nettle and GMP sources
 and the complete OfficeDroid source revision containing patches and build scripts.
 The APK's license assets retain Wine's LGPL, author list, bundled-library notices,
-FreeType notices, and LLVM/MinGW notices. The runtime is not signature-locked:
+FreeType, TLS-library and LLVM/MinGW notices. The runtime is not signature-locked:
 users can modify/rebuild/repackage it using the documented scripts and their own
 Android signing key. Reverse engineering for debugging changes to LGPL components
 is permitted. Wine modifications in `patches/wine/` retain LGPL-2.1-or-later.

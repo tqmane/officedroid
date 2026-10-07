@@ -58,6 +58,30 @@ APK builds, packaging and instrumentation share a lock to prevent output races.
 The workflow uploads failure logs and JUnit reports, not just APKs. Wine build
 outputs are cached before device testing, so runtime fixes can reuse compilation.
 
+## GUI and Office validation in progress
+
+The initial GUI run at `88129c5` failed with `wait_events` asserting before
+Android's desktop event queue was initialized. This is a Wine driver failure;
+the successful diagnostic launcher checks do not validate Windows editing.
+Patch 0012 defers event polling until the desktop window and Android device exist.
+Its device result is still pending.
+
+The x86_64 runtime now builds both x86_64 and i386 PE modules. Instrumentation
+requires the 32-bit `syswow64/cmd.exe` to write a real file before ODT is attempted.
+GMP 6.3.0, Nettle 3.10.2 and GnuTLS 3.8.13 cross-build locally for both Android
+ABIs. The x86_64 Wine configure detects GnuTLS and its APK/lint build passes.
+The WinHTTP certificate-validation probe is not yet device-verified.
+
+The GUI test requires visibly rendered keyboard input, copy/paste, undo, a saved
+file and a cold restart displaying the saved content. It removes its previous
+test file first. OCR output and screenshots are retained for review. This is
+Win32 Notepad coverage; it does not constitute Microsoft Office coverage.
+
+The dedicated CI AVD is reset for each run and has a 16 GiB data partition for
+Office's download cache and installation. After runtime/GUI tests pass, the
+ODT test runs the official installer and saves installer evidence. Neither ODT
+installation nor Word/Excel/PowerPoint editing is currently reported as passed.
+
 ## Milestone gates
 
 | Gate | Required evidence |

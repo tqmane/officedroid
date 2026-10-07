@@ -21,7 +21,6 @@ public class WineRuntimeTest {
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
         try {
             WineRuntime.run(context, 120, "wineboot", "--init");
-            assertTrue(new File(MainActivity.prefix(context), "system.reg").isFile());
             File output = new File(MainActivity.prefix(context), "drive_c/officedroid-smoke.txt");
             if (output.exists()) assertTrue(output.delete());
             WineRuntime.run(context, 60, "cmd", "/c", "echo OFFICEDROID>C:\\officedroid-smoke.txt");
@@ -30,5 +29,9 @@ public class WineRuntimeTest {
         } finally {
             WineRuntime.stop(context);
         }
+        // Wineserver saves every 30 seconds and on shutdown, not at wineboot exit.
+        File registry = new File(MainActivity.prefix(context), "system.reg");
+        assertTrue("The shared prefix registry must persist after shutdown", registry.isFile());
+        assertTrue("The saved registry must contain data", registry.length() > 0);
     }
 }

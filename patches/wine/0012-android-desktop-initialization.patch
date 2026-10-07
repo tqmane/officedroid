@@ -1,0 +1,48 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: defer surface events until the desktop window exists
+
+Wine 11 calls CreateDesktop before CreateWindow. The former must establish
+the display mode without polling an uninitialized event pipe or desktop tid.
+Start the Android device in CreateWindow, then consume its surface events.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/window.c
++++ b/dlls/wineandroid.drv/window.c
+@@ -979,6 +979,14 @@
+         start_android_device();
+         if (!(data = alloc_win_data( hwnd ))) return FALSE;
+         release_win_data( data );
++
++        /* The Java device and event pipe now exist. CreateDesktop is called
++         * before this window, so it cannot wait for Android surface events. */
++        while (wait_events( 2000 ) == 1)
++        {
++            process_events( QS_ALLINPUT );
++            if (screen_width) break;
++        }
+     }
+     return TRUE;
+ }
+@@ -1240,15 +1248,10 @@
+  */
+ BOOL ANDROID_CreateDesktop( const WCHAR *name, UINT width, UINT height )
+ {
+-    /* wait until we receive the surface changed event */
+-    while (!screen_width)
+-    {
+-        if (wait_events( 2000 ) != 1)
+-        {
+-            ERR( "wait timed out\n" );
+-            break;
+-        }
+-        process_events( QS_ALLINPUT );
+-    }
+-    return 0;
+-}
++    /* Explorer creates the desktop before its window and Android device.
++     * Seed its display mode; Java updates the actual surface dimensions later. */
++    screen_width = width;
++    screen_height = height;
++    init_monitors( width, height );
++    return TRUE;
++}

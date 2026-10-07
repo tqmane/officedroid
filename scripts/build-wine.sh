@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 abi=${1:-x86_64}
 case "$abi" in
-    x86_64) target=x86_64-linux-android; pe=x86_64 ;;
+    x86_64) target=x86_64-linux-android; pe=x86_64,i386 ;;
     arm64-v8a) target=aarch64-linux-android; pe=aarch64 ;;
     *) echo 'Usage: build-wine.sh {x86_64|arm64-v8a}' >&2; exit 2 ;;
 esac

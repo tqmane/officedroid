@@ -101,7 +101,9 @@ public class WineActivity extends Activity
             }
             System.load( getApplicationInfo().nativeLibraryDir + "/libntdll.so" );
             String[] command = { environ.get( "WINELOADER" ), "explorer.exe",
-                                 "/desktop=officedroid,,android", "notepad.exe C:\\gui-smoke.txt" };
+                                 "/desktop=officedroid," + getResources().getDisplayMetrics().widthPixels + "x"
+                                 + getResources().getDisplayMetrics().heightPixels + ",android",
+                                 "notepad.exe C:\\gui-smoke.txt" };
             String error = wine_init( command, env );
             throw new IOException( "Wine GUI returned: " + error );
         }

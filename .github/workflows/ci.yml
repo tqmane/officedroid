@@ -1,5 +1,9 @@
 name: Build and test
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -25,8 +29,8 @@ jobs:
           java-version: '21'
       - uses: actions/cache@v4
         with:
-          path: .tools
-          key: android-${{ runner.os }}-${{ hashFiles('scripts/setup.sh', 'scripts/env.sh') }}
+          path: .tools/gradle-home
+          key: android-gradle-v1-${{ runner.os }}-${{ hashFiles('scripts/setup.sh', 'scripts/env.sh') }}
       - run: ./scripts/setup.sh --emulator
       - run: ./scripts/build.sh
       - name: Enable KVM

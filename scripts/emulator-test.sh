@@ -45,4 +45,8 @@ gradle --no-daemon :app:connectedDebugAndroidTest "$@"
 # Gradle's test runner uninstalls the target APK during cleanup.
 # Reinstall for the independent launcher/screenshot check.
 timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
-timeout 30s adb shell am start -W -n org.officedroid/.MainActivity
+launch_args=()
+for arg in "$@"; do
+    [[ $arg != -PwineRuntime=true ]] || launch_args+=(--wine)
+done
+python3 scripts/launch-test.py "${launch_args[@]}"

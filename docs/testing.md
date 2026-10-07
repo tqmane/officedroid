@@ -6,6 +6,15 @@ cross-builds both Android ABIs, builds APK/test APK and runs Android lint.
 instrumentation and captures logcat, emulator output and a screenshot. CI keeps
 these plus Gradle reports. No test treats an absent emulator as a pass.
 
+After instrumentation, the emulator script reinstalls the APK and runs
+`scripts/launch-test.py`. It cold-starts all four launcher Activities using the
+MAIN/LAUNCHER intent, requires visible title/native-success text and the resumed
+Activity, and records a screenshot, UI XML and launch log for each. Wine builds
+also tap **Check Wine version** on the main screen and require visible
+`wine-11.0` output. Missing UI or a failed native startup fails the job.
+See `.build/emulator/launch/` in the Actions results artifact and the job summary.
+These screens are Android diagnostics, not the Microsoft Office editing UI.
+
 Instrumentation verifies an actual packaged native subprocess, private filesystem
 round trip, fork/wait and executable anonymous memory in a non-root Android UID;
 it also checks separate Activities share a prefix and the test screen is a tablet.

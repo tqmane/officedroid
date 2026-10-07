@@ -49,7 +49,8 @@ adb shell settings put system user_rotation 0
 adb shell input keyevent 82
 exec 8>.build/android-build.lock
 flock 8
-gradle --no-daemon :app:connectedDebugAndroidTest "$@"
+instrumentation_status=0
+gradle --no-daemon :app:connectedDebugAndroidTest "$@" || instrumentation_status=$?
 # Gradle's test runner uninstalls the target APK during cleanup.
 # Reinstall for the independent launcher/screenshot check.
 timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -59,7 +60,12 @@ for arg in "$@"; do
 done
 python3 scripts/launch-test.py "${launch_args[@]}"
 if ((${#launch_args[@]})); then
-    python3 scripts/wine-gui-test.py
+    gui_status=0
+    python3 scripts/wine-gui-test.py || gui_status=$?
+    # Collect independent GUI evidence even if a networking check failed.
+    ((instrumentation_status == 0)) || exit "$instrumentation_status"
+    ((gui_status == 0)) || exit "$gui_status"
     python3 scripts/office-install-test.py
     python3 scripts/office-edit-test.py
 fi
+exit "$instrumentation_status"

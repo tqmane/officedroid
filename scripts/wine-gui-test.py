@@ -32,6 +32,9 @@ def open_editor():
     window = None
     while time.monotonic() < deadline:
         nodes = hierarchy()
+        for node in nodes:
+            if node.get('text', '').startswith('Wine GUI startup failed:'):
+                raise RuntimeError(node.get('text'))
         windows = []
         for node in nodes:
             if not node.get('content-desc', '').startswith('Wine window '):

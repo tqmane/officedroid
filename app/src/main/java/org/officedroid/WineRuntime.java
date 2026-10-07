@@ -137,11 +137,6 @@ public final class WineRuntime {
         ProcessBuilder builder = new ProcessBuilder(command).directory(context.getFilesDir())
                 .redirectErrorStream(true).redirectOutput(log);
         builder.environment().putAll(environment(context, runtime));
-        // The Android JNI entry point also initializes Wine without the Linux preloader.
-        // Version/help must still go through Wine's command-line parser.
-        if (arguments.length > 0 && !arguments[0].equals("--version") && !arguments[0].equals("--help")) {
-            builder.environment().put("WINELOADERNOEXEC", "1");
-        }
         Process process = builder.start();
         if (!process.waitFor(seconds, TimeUnit.SECONDS)) {
             process.destroyForcibly();

@@ -1,0 +1,22 @@
+From: OfficeDroid contributors
+Subject: [PATCH] ntdll: spawn the explicit APK wineserver before probing standard names
+
+Android posix_spawn can report success followed by child exit 127 when exec
+fails. Probing the absent standard wineserver name therefore prevents fallback
+to the APK's libwineserver.so. Use the application's explicit path first.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -584,6 +584,11 @@
+     if (build_dir)
+         return build_path_and_exec( pid, build_dir, "server/wineserver", argv );
+ 
++#ifdef __ANDROID__
++    if (getenv( "OFFICEDROID_DLL_DIR" ) && (path = getenv( "WINESERVER" )))
++        return build_path_and_exec( pid, "", path, argv );
++#endif
++
+     if (!build_path_and_exec( pid, bin_dir, "wineserver", argv )) return 0;
+     if ((path = getenv( "WINESERVER" )) && !build_path_and_exec( pid, "", path, argv )) return 0;
+ 

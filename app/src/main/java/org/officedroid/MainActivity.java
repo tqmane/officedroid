@@ -19,12 +19,28 @@ public class MainActivity extends Activity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private TextView status;
     protected String officeName() { return "OfficeDroid"; }
+    protected String officeExecutable() { return null; }
     public static File prefix(android.content.Context context) {
         return new File(context.getFilesDir(), "prefix");
     }
 
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String executable = officeExecutable();
+        File installed = executable == null ? null : new File(prefix(this),
+            "drive_c/Program Files/Microsoft Office/root/Office16/" + executable);
+        if (installed != null && installed.isFile() && getIntent().getData() == null) {
+            Intent launch = new Intent(this, org.winehq.wine.WineActivity.class)
+                .putExtra("office_executable", executable);
+            String document = getIntent().getStringExtra("test_document");
+            if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+                    && document != null && document.matches("office-edit-(word\\.docx|excel\\.xlsx|powerpoint\\.pptx)")) {
+                launch.putExtra("office_document", "C:\\" + document);
+            }
+            startActivity(launch);
+            finish();
+            return;
+        }
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(32, 32, 32, 32);
@@ -42,7 +58,9 @@ public class MainActivity extends Activity {
             + "\nScreen: " + getResources().getDisplayMetrics().widthPixels + "×"
             + getResources().getDisplayMetrics().heightPixels
             + " / " + getResources().getDisplayMetrics().densityDpi + " dpi"
-            + "\nOffice is not installed. This development build tests native execution.\n");
+            + (new File(prefix(this), "drive_c/Program Files/Microsoft Office/root/Office16/WINWORD.EXE").isFile()
+               ? "\nMicrosoft 365 files found in the shared runtime.\n"
+               : "\nOffice is not installed. This development build tests native execution.\n"));
         column.addView(status);
         addButton(column, "Run native diagnostics", this::diagnose);
         if (WineRuntime.available(this)) addButton(column, "Open Windows editor", () ->

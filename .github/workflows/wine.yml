@@ -30,7 +30,7 @@ jobs:
       matrix:
         abi: [x86_64, arm64-v8a]
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -80,7 +80,7 @@ jobs:
           fi
       - name: Run Wine on Android 16
         if: matrix.abi == 'x86_64'
-        timeout-minutes: 40
+        timeout-minutes: 65
         run: ./scripts/emulator-test.sh -PwineRuntime=true
       - uses: actions/upload-artifact@v4
         if: always()

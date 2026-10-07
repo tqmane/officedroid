@@ -113,6 +113,15 @@ public class WineActivity extends Activity
                 command.add( "/c" );
                 command.add( "C:\\office-setup\\install-office.cmd" );
             }
+            else if (getIntent().hasExtra( "office_executable" ))
+            {
+                String executable = getIntent().getStringExtra( "office_executable" );
+                if (!java.util.Arrays.asList( "WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE" ).contains( executable ))
+                    throw new IOException( "Unknown Office application" );
+                command.add( "C:\\Program Files\\Microsoft Office\\root\\Office16\\" + executable );
+                String documentPath = getIntent().getStringExtra( "office_document" );
+                if (documentPath != null) command.add( documentPath );
+            }
             else
             {
                 command.add( "notepad.exe" );

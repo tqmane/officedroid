@@ -88,6 +88,17 @@ Office's download cache and installation. After runtime/GUI tests pass, the
 ODT test runs the official installer and saves installer evidence. Neither ODT
 installation nor Word/Excel/PowerPoint editing is currently reported as passed.
 
+`scripts/office-edit-test.py` stages fresh, committed test documents and launches
+Word, Excel and PowerPoint from their respective Android Activities. It finds
+fixture text on the rendered Office screen, injects keyboard edits, saves using
+Ctrl+S, checks the modified OOXML contents, terminates the app and verifies the
+saved text is visible after a cold reopen. Screenshots, OCR and the edited test
+documents are retained separately for each application. An account dialog or a
+read-only editor cannot satisfy these assertions. These tests remain unrun until
+the runtime and installer gates pass. Fixture regeneration requirements are in
+`tests/generate-office-fixtures.py`; CI uses the committed documents without
+installing those Python packages.
+
 ## Milestone gates
 
 | Gate | Required evidence |

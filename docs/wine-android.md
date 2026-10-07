@@ -16,8 +16,10 @@ Inspected `configure.ac`, `dlls/wineandroid.drv`, `dlls/ntdll/unix/loader.c`,
 - Ntdll derives loader/data paths from its real path, and Wine children exec the
   loader/server. Modern APK packaging needs a consistent installed-library layout
   and path adaptation, not only a Java `System.load` call.
-- PE image mapping includes fallback copying after `EPERM`/`EACCES`. Actual
-  Android SELinux and seccomp behavior still needs a device test.
+- PE image mapping includes fallback copying after `EPERM`/`EACCES`. On Android
+  16, a read-only file mapping can succeed while a later executable `mprotect`
+  fails for private app data. The Android patch selects Wine's existing anonymous
+  copy path for PE images before this occurs; it does not change SELinux policy.
 
 `scripts/build-wine.sh` isolates host tools, target output and staged installation.
 Both x86_64 and aarch64 builds complete with NDK r28c and LLVM-MinGW 20250709.
@@ -31,6 +33,13 @@ The numbered patches in `patches/wine/` are the entire Wine delta: a bionic
 header fix; explicit native DLL/data/loader paths; correction of stale Android
 driver declarations/callback signatures; removal of unused broken driver code
 and the obsolete upstream APK build; and exported JVM state for the driver.
+Additional Android patches select the explicit APK wineserver path before
+attempting conventional Unix paths, locate its NLS data in private assets, and
+copy private PE images into anonymous mappings. Bionic's `posix_spawn` can return
+success followed by child exit 127 for a missing executable, so a fallback based
+only on its return value did not work here.
+An opt-in `OFFICEDROID_DEBUG_INIT` trace records initialization checkpoints before
+normal Wine logging is ready. The Android experiment enables it for diagnosis.
 The JNI `WineActivity`/Surface bridge is not integrated into this app yet.
 The optional instrumentation test exercises the standalone, headless loader,
 `wineboot --init`, and a Windows `cmd` filesystem write. GUI and Office support

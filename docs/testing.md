@@ -13,9 +13,9 @@ Native host tests run on both x86_64 and ARM64 CI runners.
 
 Runtime path tests cover an aliased private directory, traversal attempts,
 escaping parent symlinks, and replacement of a dangling native-library symlink.
-With `-PwineRuntime=true`, the Wine test requires `wine --version`, successful
-`wineboot`, a registry file, and an actual Windows `cmd` write into drive C.
-It is skipped only when the default APK intentionally excludes Wine.
+With `-PwineRuntime=true`, separate Wine tests require `wine --version` and
+successful `wineboot`, an actual Windows `cmd` write into drive C, and a
+nonempty registry persisted after wineserver shutdown. They are skipped only when the default APK intentionally excludes Wine.
 APK builds, packaging and instrumentation share a lock to prevent output races.
 
 ## Observed results (2026-10-07)
@@ -25,14 +25,26 @@ APK builds, packaging and instrumentation share a lock to prevent output races.
 - Both Android ABI native builds, APK assembly and Android lint pass locally.
 - Wine 11.0 plus FreeType compiles and packages for both ABIs. Repeating the
   x86_64 Wine build also succeeds.
-- [Core CI run 37648351231](https://github.com/tqmane/officedroid/actions/runs/37648351231)
+- [Core CI run 37660737536](https://github.com/tqmane/officedroid/actions/runs/37660737536)
   passes host tests on x86_64/ARM64 and Android 16 tablet instrumentation.
-  The diagnostic APK passes three device tests; its Wine test is skipped.
+  The diagnostic APK passes four device tests; its two Wine tests are skipped.
 - Local software-only emulation boots but ddmlib times out reading device
   properties before instrumentation. This is an unrun device test, not a pass.
   GitHub Actions provides the working Android emulator test environment.
-- Wine device testing exposed private-directory path alias handling; a fix and
-  regression test are under CI verification. `wineboot` is not yet validated.
+- [Wine CI run 37660737612](https://github.com/tqmane/officedroid/actions/runs/37660737612)
+  builds both Android ABIs and passes Android 16 x86_64 instrumentation with
+  Wine included: `wine --version`, `wineboot --init`, a Windows `cmd` filesystem
+  write and a nonempty shared-prefix registry after wineserver shutdown.
+  This verifies the headless Wine milestone in the application sandbox without
+  Termux, PRoot, root or SELinux changes. GUI and Office are not validated.
+- Runtime failures were fixed in tracked patches: Android directory aliases;
+  the APK wineserver executable path; wineserver NLS assets; and anonymous PE
+  image mappings where app-data-backed executable mappings are rejected.
+  Registry checks wait until shutdown because Wine saves periodically, not at
+  the instant `wineboot` exits.
+- SDK Manager retries incomplete package installations up to three times and
+  preserves the final failure status. Repeated setup and a simulated persistent
+  failure verify successful reuse and bounded retries respectively.
 
 The workflow uploads failure logs and JUnit reports, not just APKs. Wine build
 outputs are cached before device testing, so runtime fixes can reuse compilation.

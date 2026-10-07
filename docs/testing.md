@@ -70,13 +70,24 @@ still had no GUI: a bare `explorer.exe` name caused the JNI process to run
 `notepad.exe C:\gui-smoke.txt` was also treated as one executable filename.
 The launcher now uses Explorer's absolute Windows path and separate arguments,
 and preloads its native dependencies in Android's class-loader namespace.
-These follow-up fixes still need device validation.
+Run [37699626409](https://github.com/tqmane/officedroid/actions/runs/37699626409)
+at `37bee12` confirms that the JVM desktop callback now runs and Notepad creates
+Win32 windows, but the Android screen remains blank. All surface requests fail
+with `ENOENT`: the driver passes a Win32 `\\.\WineAndroid` path to `NtCreateFile`,
+which requires the registered NT `\??\WineAndroid` path. Patch 0014 fixes this
+and opens the device synchronously so output buffers remain valid until completion.
+The corrected native build, APK and lint pass locally; device validation is running.
 
 The x86_64 runtime now builds both x86_64 and i386 PE modules. Instrumentation
 requires the 32-bit `syswow64/cmd.exe` to write a real file before ODT is attempted.
 GMP 6.3.0, Nettle 3.10.2 and GnuTLS 3.8.13 cross-build locally for both Android
 ABIs. The x86_64 Wine configure detects GnuTLS and its APK/lint build passes.
-The WinHTTP certificate-validation probe is not yet device-verified.
+The WinHTTP process exited zero in that run, but its success marker was absent
+from the first 64 KiB of its startup log. The assertion failed, so HTTPS is not
+reported as verified. Command results now retain the final 64 KiB and reduce
+irrelevant warning output. The device runner logged completion of the 32-bit
+command test, but failed to deliver its final instrumentation result; this also
+requires a clean rerun rather than counting as a passed CI test.
 
 The GUI test requires visibly rendered keyboard input, copy/paste, undo, a saved
 file and a cold restart displaying the saved content. It removes its previous

@@ -40,10 +40,14 @@ success followed by child exit 127 for a missing executable, so a fallback based
 only on its return value did not work here.
 An opt-in `OFFICEDROID_DEBUG_INIT` trace records initialization checkpoints before
 normal Wine logging is ready. The Android experiment enables it for diagnosis.
-The JNI `WineActivity`/Surface bridge is not integrated into this app yet.
-The optional instrumentation test exercises the standalone, headless loader,
-`wineboot --init`, and a Windows `cmd` filesystem write. GUI and Office support
-must not be inferred from it.
+The JNI `WineActivity`/Surface bridge is integrated into a dedicated Android
+process. It preloads native dependencies in the app class-loader namespace and
+starts Explorer by its absolute Windows path to preserve the JVM connection.
+Patches 0012 and 0014 repair desktop initialization order and Android device
+requests. The bridge is still under device validation. Instrumentation exercises
+the standalone loader, wineboot, 64/32-bit Windows commands and WinHTTP certificate
+validation; GUI tests separately require rendered input, saving and reopening.
+See [testing.md](testing.md) for observed failures and the current verification state.
 
 Autoconf/Automake/Meson are not prerequisites for this pinned source: Wine ships
 `configure` and uses its own Makefile generator. Install Autoconf only if changing
@@ -51,6 +55,8 @@ Autoconf/Automake/Meson are not prerequisites for this pinned source: Wine ships
 
 Desktop ALSA, PulseAudio, X11, Wayland, CUPS, udev and GStreamer are excluded from
 the Android baseline. FreeType 2.13.3 is built for the host tools and both Android
-targets. Missing target GnuTLS and other optional libraries
-must remain visible in configure logs; a baseline build does not promise Office
-font rendering, TLS, media or Vulkan support.
+targets. GnuTLS 3.8.13, Nettle 3.10.2 and GMP 6.3.0 are cross-built by
+`scripts/build-tls.sh`; Wine configuration requires GnuTLS. Patch 0013 adds
+Android's current Conscrypt certificate directory. Remaining optional libraries
+stay visible in configure logs. Successful compilation does not establish Office
+rendering, HTTPS behavior, media or Vulkan support.

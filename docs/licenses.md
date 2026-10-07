@@ -1,6 +1,9 @@
 # Upstream and license inventory
 
 OfficeDroid-authored code is MIT. This does not relicense upstream code.
+`app/src/main/java/org/winehq/wine/WineActivity.java` is adapted from Wine 11.0
+at `db11d0fe6a169c457e23d007e20404643d067aa8` and remains LGPL-2.1-or-later.
+Its copyright header and LGPL text are preserved in the source and APK assets.
 Downloaded SDKs, toolchains and Wine source/build outputs are excluded from Git.
 The default diagnostic APK excludes Wine. The optional Wine APK contains Wine,
 its bundled libraries/fonts, and FreeType, with upstream notices in

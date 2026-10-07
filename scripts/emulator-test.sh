@@ -50,3 +50,6 @@ for arg in "$@"; do
     [[ $arg != -PwineRuntime=true ]] || launch_args+=(--wine)
 done
 python3 scripts/launch-test.py "${launch_args[@]}"
+if ((${#launch_args[@]})); then
+    python3 scripts/wine-gui-test.py
+fi

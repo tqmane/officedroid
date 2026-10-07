@@ -45,6 +45,8 @@ public class MainActivity extends Activity {
             + "\nOffice is not installed. This development build tests native execution.\n");
         column.addView(status);
         addButton(column, "Run native diagnostics", this::diagnose);
+        if (WineRuntime.available(this)) addButton(column, "Open Windows editor", () ->
+            startActivity(new Intent(this, org.winehq.wine.WineActivity.class)));
         if (WineRuntime.available(this)) addButton(column, "Check Wine version", () -> worker.submit(() -> {
             String result;
             try { result = WineRuntime.run(this, 30, "--version"); }

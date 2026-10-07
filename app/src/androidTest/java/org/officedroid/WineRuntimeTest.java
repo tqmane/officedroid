@@ -36,6 +36,13 @@ public class WineRuntimeTest {
             WineRuntime.run(context, 60, "cmd", "/c", "echo OFFICEDROID>C:\\officedroid-smoke.txt");
             assertTrue("The Windows command must actually write a file", output.isFile());
             assertTrue(new String(java.nio.file.Files.readAllBytes(output.toPath()), java.nio.charset.StandardCharsets.UTF_8).contains("OFFICEDROID"));
+            if (android.os.Build.SUPPORTED_ABIS[0].equals("x86_64")) {
+                File wow64Output = new File(MainActivity.prefix(context), "drive_c/officedroid-wow64.txt");
+                if (wow64Output.exists()) assertTrue(wow64Output.delete());
+                WineRuntime.run(context, 60, "C:\\windows\\syswow64\\cmd.exe", "/c", "echo WOW64>C:\\officedroid-wow64.txt");
+                assertTrue("The 32-bit command must run before trying the i386 Office installer", wow64Output.isFile());
+                assertTrue(new String(java.nio.file.Files.readAllBytes(wow64Output.toPath()), java.nio.charset.StandardCharsets.UTF_8).contains("WOW64"));
+            }
         } finally {
             WineRuntime.stop(context);
         }

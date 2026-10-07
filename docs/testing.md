@@ -64,7 +64,13 @@ The initial GUI run at `88129c5` failed with `wait_events` asserting before
 Android's desktop event queue was initialized. This is a Wine driver failure;
 the successful diagnostic launcher checks do not validate Windows editing.
 Patch 0012 defers event polling until the desktop window and Android device exist.
-Its device result is still pending.
+The next run (`1d5e1c3`, PR run 37695199517) passed the six baseline tests but
+still had no GUI: a bare `explorer.exe` name caused the JNI process to run
+`start.exe`, launching Explorer in another process without the JVM. The argument
+`notepad.exe C:\gui-smoke.txt` was also treated as one executable filename.
+The launcher now uses Explorer's absolute Windows path and separate arguments,
+and preloads its native dependencies in Android's class-loader namespace.
+These follow-up fixes still need device validation.
 
 The x86_64 runtime now builds both x86_64 and i386 PE modules. Instrumentation
 requires the 32-bit `syswow64/cmd.exe` to write a real file before ODT is attempted.

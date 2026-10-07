@@ -100,6 +100,17 @@ public final class WineRuntime {
         }
         return directory;
     }
+    public static void loadGuiLibraries(Context context) throws Exception {
+        // The Android class-loader namespace does not use a later LD_LIBRARY_PATH
+        // update. Preload dependencies by their APK-installed paths and SONAMEs.
+        String abi = Build.SUPPORTED_ABIS[0];
+        JSONObject mapping = new JSONObject(text(context.getAssets().open("layout-" + abi + ".json")))
+                .getJSONObject("native");
+        File nativeDirectory = new File(context.getApplicationInfo().nativeLibraryDir);
+        for (String name : new String[] {"libgmp.so", "libnettle.so", "libhogweed.so", "libgnutls.so", "libfreetype.so"}) {
+            System.load(inside(nativeDirectory, mapping.getString(abi + "/lib/" + name)).getAbsolutePath());
+        }
+    }
     public static Map<String, String> environment(Context context, File directory) throws IOException {
         String abi = Build.SUPPORTED_ABIS[0];
         String machine = abi.equals("arm64-v8a") ? "aarch64" : "x86_64";

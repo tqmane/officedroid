@@ -99,14 +99,26 @@ public class WineActivity extends Activity
                 env[i++] = entry.getKey();
                 env[i++] = entry.getValue();
             }
+            org.officedroid.WineRuntime.loadGuiLibraries( this );
             System.load( getApplicationInfo().nativeLibraryDir + "/libntdll.so" );
-            String[] command = { environ.get( "WINELOADER" ), "explorer.exe",
-                                 "/desktop=officedroid," + getResources().getDisplayMetrics().widthPixels + "x"
-                                 + getResources().getDisplayMetrics().heightPixels + ",android",
-                                 getIntent().getBooleanExtra( "install_office", false )
-                                 ? "cmd.exe /c C:\\office-setup\\install-office.cmd"
-                                 : "notepad.exe C:\\gui-smoke.txt" };
-            String error = wine_init( command, env );
+            java.util.ArrayList<String> command = new java.util.ArrayList<>();
+            command.add( environ.get( "WINELOADER" ) );
+            // A bare name falls back to start.exe, spawning Explorer without the JVM.
+            command.add( "C:\\windows\\system32\\explorer.exe" );
+            command.add( "/desktop=officedroid," + getResources().getDisplayMetrics().widthPixels + "x"
+                         + getResources().getDisplayMetrics().heightPixels + ",android" );
+            if (getIntent().getBooleanExtra( "install_office", false ))
+            {
+                command.add( "cmd.exe" );
+                command.add( "/c" );
+                command.add( "C:\\office-setup\\install-office.cmd" );
+            }
+            else
+            {
+                command.add( "notepad.exe" );
+                command.add( "C:\\gui-smoke.txt" );
+            }
+            String error = wine_init( command.toArray( new String[0] ), env );
             throw new IOException( "Wine GUI returned: " + error );
         }
         catch (Throwable error)

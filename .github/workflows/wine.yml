@@ -21,7 +21,7 @@ permissions:
   contents: read
 concurrency:
   group: wine-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   wine:
     strategy:
@@ -37,12 +37,22 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: ./scripts/setup.sh --wine
+      - uses: actions/cache/restore@v4
+        id: wine-cache
+        with:
+          path: .build
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh', 'patches/wine/**') }}
       - name: Build Wine and preserve the real exit code
         shell: bash
         run: |
           mkdir -p .build/logs
           set -o pipefail
           ./scripts/build-wine.sh '${{ matrix.abi }}' 2>&1 | tee '.build/logs/wine-${{ matrix.abi }}.log'
+      - uses: actions/cache/save@v4
+        if: steps.wine-cache.outputs.cache-hit != 'true'
+        with:
+          path: .build
+          key: ${{ steps.wine-cache.outputs.cache-primary-key }}
       - name: Package APK and corresponding Wine source
         run: |
           python3 scripts/package-wine.py '${{ matrix.abi }}'

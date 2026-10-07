@@ -18,12 +18,15 @@ mkdir -p "$OFFICEDROID_TOOLS/downloads" "$ANDROID_USER_HOME" "$GRADLE_USER_HOME"
 mkdir -p "$GRADLE_USER_HOME/init.d"
 cp "$OFFICEDROID_ROOT/scripts/gradle-network.init.gradle" "$GRADLE_USER_HOME/init.d/officedroid-network.gradle"
 packages=()
-command -v javac >/dev/null || packages+=(openjdk-21-jdk-headless openjdk-21-jre-headless)
+java_major=$(javac -version 2>&1 | sed -n 's/^javac \([0-9]*\).*/\1/p' || true)
+if [[ -z $java_major ]] || ((java_major < 17)); then
+    packages+=(openjdk-21-jdk-headless openjdk-21-jre-headless)
+fi
+for dependency in gcc:build-essential g++:build-essential make:build-essential pkg-config:pkg-config curl:curl git:git unzip:unzip python3:python3 patch:patch flock:util-linux; do
+    command -v "${dependency%%:*}" >/dev/null || packages+=("${dependency#*:}")
+done
 if $wine; then
     for tool in bison flex m4; do command -v "$tool" >/dev/null || packages+=("$tool"); done
-    for tool in gcc g++ make pkg-config; do
-        command -v "$tool" >/dev/null || { echo "Install build-essential and pkg-config first ($tool missing)" >&2; exit 1; }
-    done
 fi
 if ((${#packages[@]})); then
     if [[ $EUID == 0 ]] || command -v sudo >/dev/null; then

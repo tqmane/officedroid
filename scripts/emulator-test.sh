@@ -40,5 +40,7 @@ adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
 adb shell input keyevent 82
 gradle --no-daemon :app:connectedDebugAndroidTest "$@"
-# Keep a visible launcher screen in the diagnostic screenshot.
-adb shell am start -n org.officedroid/.MainActivity
+# Gradle's test runner uninstalls the target APK during cleanup.
+# Reinstall for the independent launcher/screenshot check.
+timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
+timeout 30s adb shell am start -W -n org.officedroid/.MainActivity

@@ -51,7 +51,8 @@ for activity, title in [('MainActivity', 'OfficeDroid'), ('WordActivity', 'Word 
             screen(activity, [title, 'wine-11.0'])
         resumed = adb('shell', 'dumpsys', 'activity', 'activities').decode()
         (output / f'{activity}-activities.txt').write_text(resumed)
-        if not any('mResumedActivity' in line and f'org.officedroid/.{activity}' in line
+        if not any(('topResumedActivity=' in line or 'mResumedActivity:' in line)
+                   and f'org.officedroid/.{activity}' in line
                    for line in resumed.splitlines()):
             raise RuntimeError(f'{activity} is not resumed')
         results.append({'activity': activity, 'visible': True, 'native_probe': True,

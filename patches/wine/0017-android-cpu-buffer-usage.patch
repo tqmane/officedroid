@@ -1,0 +1,21 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: request CPU-accessible GDI buffers
+
+Surface::lock only sets software usage when it establishes the CPU connection
+itself. Wine connects first, so explicitly set the usage before any dequeue.
+Without this Android 16 allocates GPU-only buffers and Gralloc5 rejects the
+subsequent CPU lock with BAD_VALUE(uncheckedUsage).
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/device.c
++++ b/dlls/wineandroid.drv/device.c
+@@ -553,6 +553,9 @@
+     data->generation++;
+     wrap_java_call();
+     if (data->api) win->perform( win, NATIVE_WINDOW_API_CONNECT, data->api );
++    if (!opengl)
++        win->perform( win, NATIVE_WINDOW_SET_USAGE,
++                      GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN );
+     win->perform( win, NATIVE_WINDOW_SET_BUFFERS_FORMAT, data->buffer_format );
+     win->setSwapInterval( win, data->swap_interval );
+     unwrap_java_call();

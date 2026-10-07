@@ -16,13 +16,16 @@ public final class WineRuntime {
     public static boolean available(Context context) {
         return new File(context.getApplicationInfo().nativeLibraryDir, "libwine.so").isFile();
     }
-    private static File inside(File directory, String relative) throws IOException {
-        File file = new File(directory, relative).toPath().normalize().toFile();
-        String root = directory.getCanonicalPath();
+    static File inside(File directory, String relative) throws IOException {
+        // Android app directories can be reached through /data/user/0 and /data/data.
+        // Resolve the root first, but leave the leaf unresolved so stale native links can be replaced.
+        File rootDirectory = directory.getCanonicalFile();
+        File file = new File(rootDirectory, relative).toPath().normalize().toFile();
+        String root = rootDirectory.getPath();
         String parent = file.getParentFile().getCanonicalPath();
         if (new File(relative).isAbsolute() || !file.getAbsolutePath().startsWith(root + File.separator)
                 || !(parent.equals(root) || parent.startsWith(root + File.separator))) {
-            throw new IOException("Runtime path escapes destination");
+            throw new IOException("Runtime path escapes destination: " + relative);
         }
         return file;
     }
@@ -44,7 +47,9 @@ public final class WineRuntime {
         if (!digest.matches("[0-9a-f]{64}")) throw new IOException("Invalid runtime digest");
         File directory = new File(context.getFilesDir(), "runtime-" + abi + "-" + digest);
         File ready = new File(directory, ".ready");
-        if (ready.isFile()) return directory;
+        String installedDirectory = context.getApplicationInfo().nativeLibraryDir;
+        // APK updates change nativeLibraryDir while preserving app-private files.
+        if (ready.isFile() && text(new FileInputStream(ready)).equals(installedDirectory)) return directory;
         mkdir(directory);
         MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
         try (InputStream input = context.getAssets().open("runtime-" + abi + ".zip")) {
@@ -61,6 +66,9 @@ public final class WineRuntime {
             byte[] block = new byte[65536];
             while ((entry = input.getNextEntry()) != null) {
                 File destination = inside(directory, entry.getName());
+                if (java.nio.file.Files.isSymbolicLink(destination.toPath())) {
+                    throw new IOException("Archive entry would overwrite a symbolic link: " + entry.getName());
+                }
                 if (entry.isDirectory()) { mkdir(destination); continue; }
                 mkdir(destination.getParentFile());
                 try (FileOutputStream output = new FileOutputStream(destination)) {
@@ -87,7 +95,9 @@ public final class WineRuntime {
             }
             Os.symlink(target.getAbsolutePath(), link.getAbsolutePath());
         }
-        if (!ready.createNewFile()) throw new IOException("Cannot mark runtime ready");
+        try (FileOutputStream output = new FileOutputStream(ready)) {
+            output.write(installedDirectory.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
         return directory;
     }
     public static Map<String, String> environment(Context context, File directory) throws IOException {
@@ -135,7 +145,8 @@ public final class WineRuntime {
     }
     public static void stop(Context context) throws Exception {
         ProcessBuilder builder = new ProcessBuilder(context.getApplicationInfo().nativeLibraryDir + "/libwineserver.so", "-k");
-        builder.environment().putAll(environment(context, prepare(context)));
+        builder.environment().put("WINEPREFIX", MainActivity.prefix(context).getAbsolutePath());
+        builder.environment().put("LD_LIBRARY_PATH", context.getApplicationInfo().nativeLibraryDir);
         Process process = builder.start();
         if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroyForcibly();
     }

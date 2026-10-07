@@ -39,6 +39,8 @@ adb shell wm density 240
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
 adb shell input keyevent 82
+exec 8>.build/android-build.lock
+flock 8
 gradle --no-daemon :app:connectedDebugAndroidTest "$@"
 # Gradle's test runner uninstalls the target APK during cleanup.
 # Reinstall for the independent launcher/screenshot check.

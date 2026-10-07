@@ -2,6 +2,9 @@
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 cd "$OFFICEDROID_ROOT"
+mkdir -p .build
+exec 8>.build/android-build.lock
+flock 8
 jobs=${JOBS:-4}
 cmake -S runtime -B .build/native-host -G Ninja
 cmake --build .build/native-host -j "$jobs"

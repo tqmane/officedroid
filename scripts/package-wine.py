@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Package locally built Wine without any Microsoft files; preserve a runtime layout map."""
+import fcntl
 import hashlib
 import json
 from pathlib import Path
 import shutil
+import struct
 import sys
 import zipfile
 
@@ -11,6 +13,10 @@ root = Path(__file__).resolve().parent.parent
 abis = sys.argv[1:]
 if not abis or any(abi not in ('x86_64', 'arm64-v8a') for abi in abis):
     sys.exit('Usage: package-wine.py x86_64 [arm64-v8a]')
+(root / '.build').mkdir(exist_ok=True)
+# Serialize asset writes with Gradle builds and instrumented tests.
+lock = (root / '.build/android-build.lock').open('a')
+fcntl.flock(lock, fcntl.LOCK_EX)
 assets = root / '.build/wine-assets'
 assets.mkdir(parents=True, exist_ok=True)
 for abi in abis:
@@ -28,8 +34,12 @@ for abi in abis:
         files.append((freetype, f'{abi}/lib/libfreetype.so'))
         for path, relative in files:
             with path.open('rb') as source:
-                is_elf = source.read(4) == b'\x7fELF'
+                header = source.read(64)
+                is_elf = header[:4] == b'\x7fELF'
             if is_elf:
+                machine = 62 if abi == 'x86_64' else 183
+                if len(header) < 64 or header[4:6] != b'\x02\x01' or struct.unpack_from('<H', header, 18)[0] != machine:
+                    sys.exit(f'Wrong ELF ABI for {abi}: {relative}')
                 name = {'wine': 'libwine.so', 'wineserver': 'libwineserver.so', 'ntdll.so': 'libntdll.so'}.get(
                     path.name, 'libod_' + path.name.replace('.', '_') + '.so')
                 digest = hashlib.sha256(path.read_bytes()).hexdigest()

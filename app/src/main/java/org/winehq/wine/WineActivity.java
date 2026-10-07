@@ -103,7 +103,9 @@ public class WineActivity extends Activity
             String[] command = { environ.get( "WINELOADER" ), "explorer.exe",
                                  "/desktop=officedroid," + getResources().getDisplayMetrics().widthPixels + "x"
                                  + getResources().getDisplayMetrics().heightPixels + ",android",
-                                 "notepad.exe C:\\gui-smoke.txt" };
+                                 getIntent().getBooleanExtra( "install_office", false )
+                                 ? "cmd.exe /c C:\\office-setup\\install-office.cmd"
+                                 : "notepad.exe C:\\gui-smoke.txt" };
             String error = wine_init( command, env );
             throw new IOException( "Wine GUI returned: " + error );
         }

@@ -47,6 +47,10 @@ public class MainActivity extends Activity {
         addButton(column, "Run native diagnostics", this::diagnose);
         if (WineRuntime.available(this)) addButton(column, "Open Windows editor", () ->
             startActivity(new Intent(this, org.winehq.wine.WineActivity.class)));
+        if (WineRuntime.available(this) && new File(prefix(this), "drive_c/office-setup/setup.exe").isFile()) {
+            addButton(column, "Install Microsoft 365", () -> startActivity(
+                new Intent(this, org.winehq.wine.WineActivity.class).putExtra("install_office", true)));
+        }
         if (WineRuntime.available(this)) addButton(column, "Check Wine version", () -> worker.submit(() -> {
             String result;
             try { result = WineRuntime.run(this, 30, "--version"); }

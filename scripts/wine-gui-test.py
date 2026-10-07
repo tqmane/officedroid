@@ -70,12 +70,21 @@ try:
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
     adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
+    adb('shell', 'input', 'keycombination', '113', '29')  # Select text
+    adb('shell', 'input', 'keycombination', '113', '31')  # Ctrl+C
+    adb('shell', 'input', 'keyevent', '123')  # End
+    adb('shell', 'input', 'keyevent', '66')  # Enter
+    adb('shell', 'input', 'keycombination', '113', '50')  # Ctrl+V
+    time.sleep(1)
+    assert capture('pasted').count('OFFICEDROIDGUI') >= 2, 'Copy/paste must visibly duplicate the text'
+    adb('shell', 'input', 'keycombination', '113', '54')  # Ctrl+Z
     adb('shell', 'input', 'keycombination', '113', '47')  # Ctrl+S
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         document = adb('exec-out', 'run-as', 'org.officedroid', 'cat', 'files/prefix/drive_c/gui-smoke.txt')
         (output / 'gui-smoke.txt').write_bytes(document)
-        if b'OFFICEDROIDGUI' in document or 'OFFICEDROIDGUI'.encode('utf-16le') in document:
+        encoding = 'utf-16' if document.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+        if document.decode(encoding).strip() == 'OFFICEDROIDGUI':
             break
         time.sleep(1)
     else:

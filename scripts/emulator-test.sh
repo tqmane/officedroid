@@ -11,13 +11,21 @@ if ! avdmanager list avd -c | grep -qx officedroid-tablet; then
     printf 'no\n' | avdmanager create avd --name officedroid-tablet \
         --package 'system-images;android-36;google_apis;x86_64'
 fi
+# Microsoft 365 needs room for both its download cache and installed files.
+python3 - "$ANDROID_AVD_HOME/officedroid-tablet.avd/config.ini" <<'PYCONFIG'
+from pathlib import Path
+import sys
+config = Path(sys.argv[1])
+lines = [line for line in config.read_text().splitlines() if not line.startswith('disk.dataPartition.size')]
+config.write_text('\n'.join(lines + ['disk.dataPartition.size = 17179869184']) + '\n')
+PYCONFIG
 accel=auto
 boot_timeout=600
 if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
     accel=off
     boot_timeout=1800
 fi
-emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot \
+emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
     -gpu swiftshader_indirect -accel "$accel" -cores 2 -memory 3072 \
     > .build/emulator/emulator.log 2>&1 &
 emulator_pid=$!

@@ -1,0 +1,12 @@
+// Java does not read the standard HTTPS_PROXY variables automatically.
+// Use the environment's existing proxy and JVM CA store; never disable TLS checks.
+['http', 'https'].each { scheme ->
+    def value = System.getenv(scheme.toUpperCase() + '_PROXY') ?: System.getenv(scheme + '_proxy')
+    if (value) {
+        def proxy = new URI(value)
+        if (proxy.userInfo) throw new GradleException('Authenticated JVM proxies require a secure local Gradle configuration')
+        System.setProperty(scheme + '.proxyHost', proxy.host)
+        System.setProperty(scheme + '.proxyPort', String.valueOf(proxy.port == -1 ? 80 : proxy.port))
+    }
+}
+System.setProperty('http.nonProxyHosts', 'localhost|127.*|[::1]')

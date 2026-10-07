@@ -3,12 +3,14 @@ Subject: [PATCH] wineandroid: open the Android device with an NT object path
 
 The driver registers its symbolic link under \??\WineAndroid. NtCreateFile
 does not translate the Win32 \\.\ namespace; using that path silently makes
-every window/surface ioctl fail with ENOENT. Use the registered NT path.
+every window/surface ioctl fail with ENOENT. Use the registered NT path and
+request synchronous I/O, as the caller uses a stack IO_STATUS_BLOCK and needs
+the output before returning.
 License: LGPL-2.1-or-later, like the modified Wine file.
 
 --- a/dlls/wineandroid.drv/device.c
 +++ b/dlls/wineandroid.drv/device.c
-@@ -1185,7 +1185,7 @@
+@@ -1189,6 +1189,6 @@
  static int android_ioctl( enum android_ioctl code, void *in, DWORD in_size, void *out, DWORD *out_size )
  {
 -    static const WCHAR deviceW[] = {'\\','\\','.','\\','W','i','n','e','A','n','d','r','o','i','d',0 };
@@ -16,3 +18,11 @@ License: LGPL-2.1-or-later, like the modified Wine file.
      static HANDLE device;
      IO_STATUS_BLOCK iosb;
      NTSTATUS status;
+@@ -1205,6 +1205,6 @@
+         InitializeObjectAttributes( &attr, &name, OBJ_CASE_INSENSITIVE, NULL, NULL );
+         status = NtCreateFile( &file, GENERIC_READ | SYNCHRONIZE, &attr, &io, NULL, 0,
+                                FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_OPEN,
+-                               FILE_NON_DIRECTORY_FILE, NULL, 0 );
++                               FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, NULL, 0 );
+         if (status) return -ENOENT;
+         if (InterlockedCompareExchangePointer( &device, file, NULL )) NtClose( file );

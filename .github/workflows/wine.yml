@@ -1,0 +1,77 @@
+name: Wine Android
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/**'
+      - 'patches/**'
+      - 'app/**'
+      - 'runtime/**'
+      - '*.gradle'
+      - '.github/workflows/wine.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'patches/**'
+      - 'app/**'
+      - 'runtime/**'
+      - '*.gradle'
+      - '.github/workflows/wine.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wine-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  wine:
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [x86_64, arm64-v8a]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: ./scripts/setup.sh --wine
+      - name: Build Wine and preserve the real exit code
+        shell: bash
+        run: |
+          mkdir -p .build/logs
+          set -o pipefail
+          ./scripts/build-wine.sh '${{ matrix.abi }}' 2>&1 | tee '.build/logs/wine-${{ matrix.abi }}.log'
+      - name: Package APK and corresponding Wine source
+        run: |
+          python3 scripts/package-wine.py '${{ matrix.abi }}'
+          ./scripts/build.sh -PwineRuntime=true
+          git -C .tools/src/wine archive --format=tar.gz --output="$PWD/.build/wine-11.0-source.tar.gz" HEAD
+          tar -czf .build/officedroid-build-source.tar.gz scripts patches runtime app gradle gradlew gradlew.bat *.gradle gradle.properties LICENSE docs
+      - name: Install emulator components
+        if: matrix.abi == 'x86_64'
+        run: ./scripts/setup.sh --emulator
+      - name: Enable KVM
+        if: matrix.abi == 'x86_64'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
+      - name: Run Wine on Android 16
+        if: matrix.abi == 'x86_64'
+        timeout-minutes: 15
+        run: ./scripts/emulator-test.sh -PwineRuntime=true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-${{ matrix.abi }}-results
+          path: |
+            .build/logs/
+            .build/wine-*/config.log
+            .build/*source.tar.gz
+            .build/emulator/
+            app/build/outputs/apk/
+            app/build/reports/
+            app/build/outputs/androidTest-results/

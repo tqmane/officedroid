@@ -1,0 +1,142 @@
+package org.officedroid;
+
+import android.content.Context;
+import android.os.Build;
+import android.system.Os;
+import java.io.*;
+import java.security.MessageDigest;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.zip.*;
+import org.json.JSONObject;
+
+/** Experimental headless Wine path. All Unix code comes from the APK installer. */
+public final class WineRuntime {
+    private WineRuntime() {}
+    public static boolean available(Context context) {
+        return new File(context.getApplicationInfo().nativeLibraryDir, "libwine.so").isFile();
+    }
+    private static File inside(File directory, String relative) throws IOException {
+        File file = new File(directory, relative).toPath().normalize().toFile();
+        String root = directory.getCanonicalPath();
+        String parent = file.getParentFile().getCanonicalPath();
+        if (new File(relative).isAbsolute() || !file.getAbsolutePath().startsWith(root + File.separator)
+                || !(parent.equals(root) || parent.startsWith(root + File.separator))) {
+            throw new IOException("Runtime path escapes destination");
+        }
+        return file;
+    }
+    private static void mkdir(File directory) throws IOException {
+        if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot create " + directory);
+    }
+    private static String text(InputStream input) throws IOException {
+        try (InputStream source = input; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            byte[] bytes = new byte[8192];
+            int count;
+            while ((count = source.read(bytes)) != -1 && output.size() < 65536) output.write(bytes, 0, count);
+            return output.toString("UTF-8");
+        }
+    }
+    public static synchronized File prepare(Context context) throws Exception {
+        String abi = Build.SUPPORTED_ABIS[0];
+        JSONObject layout = new JSONObject(text(context.getAssets().open("layout-" + abi + ".json")));
+        String digest = layout.getString("sha256");
+        if (!digest.matches("[0-9a-f]{64}")) throw new IOException("Invalid runtime digest");
+        File directory = new File(context.getFilesDir(), "runtime-" + abi + "-" + digest);
+        File ready = new File(directory, ".ready");
+        if (ready.isFile()) return directory;
+        mkdir(directory);
+        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+        try (InputStream input = context.getAssets().open("runtime-" + abi + ".zip")) {
+            byte[] block = new byte[65536];
+            int count;
+            while ((count = input.read(block)) != -1) sha256.update(block, 0, count);
+        }
+        StringBuilder actual = new StringBuilder();
+        for (byte b : sha256.digest()) actual.append(String.format(Locale.ROOT, "%02x", b & 255));
+        if (!digest.equals(actual.toString())) throw new IOException("Runtime checksum mismatch");
+        long expanded = 0;
+        try (ZipInputStream input = new ZipInputStream(context.getAssets().open("runtime-" + abi + ".zip"))) {
+            ZipEntry entry;
+            byte[] block = new byte[65536];
+            while ((entry = input.getNextEntry()) != null) {
+                File destination = inside(directory, entry.getName());
+                if (entry.isDirectory()) { mkdir(destination); continue; }
+                mkdir(destination.getParentFile());
+                try (FileOutputStream output = new FileOutputStream(destination)) {
+                    int count;
+                    while ((count = input.read(block)) != -1) {
+                        expanded += count;
+                        if (expanded > 2L * 1024 * 1024 * 1024) throw new IOException("Runtime exceeds 2 GiB limit");
+                        output.write(block, 0, count);
+                    }
+                }
+            }
+        }
+        JSONObject nativeFiles = layout.getJSONObject("native");
+        Iterator<String> paths = nativeFiles.keys();
+        File nativeDirectory = new File(context.getApplicationInfo().nativeLibraryDir);
+        while (paths.hasNext()) {
+            String relative = paths.next();
+            File target = inside(nativeDirectory, nativeFiles.getString(relative));
+            if (!target.isFile()) throw new IOException("Missing APK native file: " + target.getName());
+            File link = inside(directory, relative);
+            mkdir(link.getParentFile());
+            if ((link.exists() || java.nio.file.Files.isSymbolicLink(link.toPath())) && !link.delete()) {
+                throw new IOException("Cannot replace runtime link");
+            }
+            Os.symlink(target.getAbsolutePath(), link.getAbsolutePath());
+        }
+        if (!ready.createNewFile()) throw new IOException("Cannot mark runtime ready");
+        return directory;
+    }
+    public static Map<String, String> environment(Context context, File directory) throws IOException {
+        String abi = Build.SUPPORTED_ABIS[0];
+        String machine = abi.equals("arm64-v8a") ? "aarch64" : "x86_64";
+        String nativeDirectory = context.getApplicationInfo().nativeLibraryDir;
+        File prefix = MainActivity.prefix(context);
+        mkdir(prefix);
+        File temporary = new File(context.getCacheDir(), "wine");
+        mkdir(temporary);
+        String dlls = new File(directory, abi + "/lib/wine").getAbsolutePath();
+        Map<String, String> env = new HashMap<>();
+        env.put("HOME", context.getFilesDir().getAbsolutePath());
+        env.put("TMPDIR", temporary.getAbsolutePath());
+        env.put("WINEPREFIX", prefix.getAbsolutePath());
+        env.put("WINESERVER", nativeDirectory + "/libwineserver.so");
+        env.put("WINELOADER", nativeDirectory + "/libwine.so");
+        env.put("WINEDLLPATH", dlls);
+        env.put("OFFICEDROID_DLL_DIR", dlls);
+        env.put("OFFICEDROID_DATA_DIR", new File(directory, "share/wine").getAbsolutePath());
+        env.put("LD_LIBRARY_PATH", nativeDirectory + ":" + dlls + "/" + machine + "-unix:"
+                + new File(directory, abi + "/lib").getAbsolutePath());
+        env.put("LANG", "en_US.UTF-8");
+        env.put("WINEDEBUG", "warn+all");
+        // Do not prompt to download optional Mono/Gecko during a bounded smoke test.
+        env.put("WINEDLLOVERRIDES", "mscoree,mshtml=");
+        return env;
+    }
+    public static synchronized String run(Context context, int seconds, String... arguments) throws Exception {
+        File runtime = prepare(context);
+        ArrayList<String> command = new ArrayList<>();
+        command.add(context.getApplicationInfo().nativeLibraryDir + "/libwine.so");
+        Collections.addAll(command, arguments);
+        File log = new File(context.getFilesDir(), "wine-last.log");
+        ProcessBuilder builder = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(log);
+        builder.environment().putAll(environment(context, runtime));
+        Process process = builder.start();
+        if (!process.waitFor(seconds, TimeUnit.SECONDS)) {
+            process.destroyForcibly();
+            throw new IOException("Wine timeout; " + text(new FileInputStream(log)));
+        }
+        String output = text(new FileInputStream(log));
+        if (process.exitValue() != 0) throw new IOException("Wine exit " + process.exitValue() + ": " + output);
+        return output;
+    }
+    public static void stop(Context context) throws Exception {
+        ProcessBuilder builder = new ProcessBuilder(context.getApplicationInfo().nativeLibraryDir + "/libwineserver.so", "-k");
+        builder.environment().putAll(environment(context, prepare(context)));
+        Process process = builder.start();
+        if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroyForcibly();
+    }
+}

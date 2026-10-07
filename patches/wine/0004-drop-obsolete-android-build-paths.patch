@@ -1,0 +1,32 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: remove an unused stale GL helper and legacy APK default
+
+update_gl_drawable has no callers/declaration and references a now-static
+win32u helper. Active surface callbacks remain intact. OfficeDroid builds
+the APK with modern AGP; do not also invoke upstream AGP 2.2.1 from make all.
+License: LGPL-2.1-or-later.
+
+--- a/dlls/wineandroid.drv/opengl.c
++++ b/dlls/wineandroid.drv/opengl.c
+@@ -75,14 +75,6 @@
+     release_ioctl_window( gl->window );
+ }
+ 
+-void update_gl_drawable( HWND hwnd )
+-{
+-    /* clear any cached opengl drawable */
+-    set_window_opengl_drawable( hwnd, NULL, TRUE );
+-    set_window_opengl_drawable( hwnd, NULL, FALSE );
+-    NtUserRedrawWindow( hwnd, NULL, 0, RDW_INVALIDATE | RDW_ERASE );
+-}
+-
+ static BOOL android_surface_create( HWND hwnd, int format, struct opengl_drawable **drawable )
+ {
+     struct gl_drawable *gl;
+--- a/dlls/wineandroid.drv/Makefile.in
++++ b/dlls/wineandroid.drv/Makefile.in
+@@ -13,4 +13,3 @@
+ 	window.c \
+ 	wine.svg
+ 
+-EXTRA_TARGETS = wine-debug.apk

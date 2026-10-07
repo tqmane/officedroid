@@ -1,0 +1,17 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: marshal callback address through UINT_PTR
+
+init_params carries the callback as a UINT64 for NtUser callback dispatch.
+Use the pointer-sized unsigned type before widening into that field.
+License: LGPL-2.1-or-later.
+
+--- a/dlls/wineandroid.drv/dllmain.c
++++ b/dlls/wineandroid.drv/dllmain.c
+@@ -123,6 +123,6 @@
+     if (__wine_init_unix_call()) return FALSE;
+ 
+     params.register_window_callback = register_window_callback;
+-    params.start_device_callback = android_start_device;
++    params.start_device_callback = (UINT_PTR)android_start_device;
+     return !ANDROID_CALL( init, &params );
+ }

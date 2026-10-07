@@ -45,6 +45,13 @@ public class MainActivity extends Activity {
             + "\nOffice is not installed. This development build tests native execution.\n");
         column.addView(status);
         addButton(column, "Run native diagnostics", this::diagnose);
+        if (WineRuntime.available(this)) addButton(column, "Check Wine version", () -> worker.submit(() -> {
+            String result;
+            try { result = WineRuntime.run(this, 30, "--version"); }
+            catch (Exception e) { result = "Wine failed: " + e; }
+            final String output = result;
+            runOnUiThread(() -> { if (!isFinishing()) status.append("\n" + output); });
+        }));
         addButton(column, "Word", () -> startActivity(new Intent(this, WordActivity.class)));
         addButton(column, "Excel", () -> startActivity(new Intent(this, ExcelActivity.class)));
         addButton(column, "PowerPoint", () -> startActivity(new Intent(this, PowerPointActivity.class)));

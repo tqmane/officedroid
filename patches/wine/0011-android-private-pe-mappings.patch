@@ -1,0 +1,24 @@
+From: OfficeDroid contributors
+Subject: [PATCH] ntdll: read private Android PE images into anonymous memory
+
+Modern Android denies executable mappings of app-data files. Initial RW file
+mapping can succeed, leaving the later RX protection change to fail. Select
+Wine's existing read fallback before mapping the PE header and private sections.
+The explicit shared-section mapping paths remain unchanged.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/ntdll/unix/virtual.c
++++ b/dlls/ntdll/unix/virtual.c
+@@ -3037,6 +3037,12 @@
+ 
+     TRACE_(module)( "mapping PE file %s at %p-%p\n", debugstr_us(nt_name), ptr, ptr + total_size );
+ 
++#ifdef __ANDROID__
++    /* App-data files cannot acquire PROT_EXEC. Copy private image pages into
++     * the anonymous view; Wine applies each section's final protections below. */
++    removable = TRUE;
++#endif
++
+     /* map the header */
+ 
+     fstat( fd, &st );

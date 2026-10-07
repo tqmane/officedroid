@@ -55,13 +55,14 @@ jobs:
       - name: Enable KVM
         if: matrix.abi == 'x86_64'
         run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-          test -r /dev/kvm && test -w /dev/kvm
+          if [ -e /dev/kvm ]; then
+            sudo chmod a+rw /dev/kvm
+          else
+            echo 'KVM is unavailable on this runner; testing with bounded software emulation.'
+          fi
       - name: Run Wine on Android 16
         if: matrix.abi == 'x86_64'
-        timeout-minutes: 15
+        timeout-minutes: 40
         run: ./scripts/emulator-test.sh -PwineRuntime=true
       - uses: actions/upload-artifact@v4
         if: always()

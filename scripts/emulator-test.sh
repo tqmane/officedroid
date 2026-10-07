@@ -12,7 +12,11 @@ if ! avdmanager list avd -c | grep -qx officedroid-tablet; then
         --package 'system-images;android-36;google_apis;x86_64'
 fi
 accel=auto
-[[ -r /dev/kvm && -w /dev/kvm ]] || accel=off
+boot_timeout=600
+if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
+    accel=off
+    boot_timeout=1800
+fi
 emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot \
     -gpu swiftshader_indirect -accel "$accel" -cores 2 -memory 3072 \
     > .build/emulator/emulator.log 2>&1 &
@@ -24,7 +28,7 @@ cleanup() {
     kill "$emulator_pid" 2>/dev/null || true
 }
 trap cleanup EXIT
-deadline=$((SECONDS + ${EMULATOR_BOOT_TIMEOUT:-600}))
+deadline=$((SECONDS + ${EMULATOR_BOOT_TIMEOUT:-$boot_timeout}))
 while [[ $(timeout 5s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') != 1 ]]; do
     kill -0 "$emulator_pid" || { tail -80 .build/emulator/emulator.log; exit 1; }
     ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }

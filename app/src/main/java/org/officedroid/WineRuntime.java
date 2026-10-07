@@ -122,6 +122,7 @@ public final class WineRuntime {
                 + new File(directory, abi + "/lib").getAbsolutePath());
         env.put("LANG", "en_US.UTF-8");
         env.put("WINEDEBUG", "warn+all");
+        env.put("OFFICEDROID_DEBUG_INIT", "1");
         // Do not prompt to download optional Mono/Gecko during a bounded smoke test.
         env.put("WINEDLLOVERRIDES", "mscoree,mshtml=");
         return env;

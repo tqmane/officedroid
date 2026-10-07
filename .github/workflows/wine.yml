@@ -41,7 +41,9 @@ jobs:
         id: wine-cache
         with:
           path: .build
-          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh', 'patches/wine/**') }}
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**') }}
+          restore-keys: |
+            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
       - name: Build Wine and preserve the real exit code
         shell: bash
         run: |

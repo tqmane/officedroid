@@ -3,6 +3,7 @@
 import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import struct
@@ -19,6 +20,25 @@ lock = (root / '.build/android-build.lock').open('a')
 fcntl.flock(lock, fcntl.LOCK_EX)
 assets = root / '.build/wine-assets'
 assets.mkdir(parents=True, exist_ok=True)
+# Ship upstream notices with the binary APK. CI also uploads full corresponding sources.
+tool_dir = Path(os.environ.get('OFFICEDROID_TOOLS', root / '.tools'))
+notice_sources = {
+    'wine': (tool_dir / 'src/wine', ['LICENSE', 'LICENSE.OLD', 'COPYING.LIB', 'AUTHORS']),
+    'freetype': (tool_dir / 'src/freetype', ['LICENSE.TXT', 'docs/FTL.TXT', 'src/bdf/README',
+        'src/pcf/README', 'src/gzip/zlib.h', 'src/base/fthash.c', 'src/autofit/ft-hb.c']),
+    'llvm-mingw': (tool_dir / 'llvm-mingw', ['LICENSE.TXT']),
+}
+for component, (source, names) in notice_sources.items():
+    if component == 'wine':
+        names += [p.relative_to(source).as_posix() for p in (source / 'libs').rglob('*')
+                  if p.is_file() and p.name.startswith(('LICENSE', 'COPYING', 'NOTICE'))]
+    if component == 'llvm-mingw':
+        names += [p.relative_to(source).as_posix() for p in
+                  (source / 'x86_64-w64-mingw32/share/mingw32').glob('COPYING*')]
+    for name in names:
+        destination = assets / 'licenses' / component / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source / name, destination)
 for abi in abis:
     stage = root / f'.build/wine-install-{abi}/opt/officedroid'
     if not (stage / abi / 'bin/wineserver').is_file():

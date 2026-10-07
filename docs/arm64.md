@@ -13,6 +13,8 @@ checks natively. Neither is evidence that x86 Office can run on ARM64 Android.
 | Box86 | [Box86](https://github.com/ptitSeb/box86) targets 32-bit x86 on ARM | Low priority because 32-bit ABIs are outside the initial scope |
 | Winlator | [Winlator](https://github.com/brunodev85/winlator) packages Wine/Box64 and credits glibc patches | Reference for managed native/glibc execution, not proof our Wine Android path works |
 
-Initial Wine cross-build is native aarch64 only. No x86 translation or ARM64EC
+The native aarch64 Wine cross-build and APK packaging pass locally and in CI.
+ARM64 Android execution remains untested; the ARM64 Linux host probe is a separate
+check of portable process/filesystem logic. No x86 translation or ARM64EC
 Office compatibility is enabled implicitly. Add a translator only after the
 native ABI experiment and its targeted tests identify the actual requirement.

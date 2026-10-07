@@ -5,8 +5,8 @@ Word, Excel and PowerPoint on Android tablets. No Termux, PRoot, root or externa
 Linux distribution is part of the application architecture.
 
 **Development prototype, not a working Office product.** The APK currently
-provides separate launchers and a real native-executable diagnostic. Wine Android
-cross-builds are a separate experiment. Microsoft Office installation, editing,
+provides separate launchers and a real native-executable diagnostic. An optional
+APK packages Wine 11.0 and FreeType built for Android. Microsoft Office installation, editing,
 authentication, document write-back and shared Wine lifecycle are not yet working.
 Launcher entries alone do not demonstrate Office compatibility.
 
@@ -20,17 +20,24 @@ Use an existing checkout. Cloud tasks are already isolated; no worktree is neede
 ./scripts/build.sh
 ./scripts/build-wine.sh x86_64
 ./scripts/build-wine.sh arm64-v8a
+python3 scripts/package-wine.py x86_64 arm64-v8a
+./scripts/build.sh -PwineRuntime=true
 ```
 
 Setup detects missing JDK and Wine build tools. SDK 36, NDK r28c, CMake/Ninja,
 Gradle 8.13 and LLVM-MinGW are installed locally with verified downloads. Ubuntu
 uses APT when required; Debian read-only cloud images use signed APT downloads
 and local extraction. Sources, downloads and outputs are ignored by Git.
-Allow roughly 15–25 GB for tools, both Wine builds and an emulator image.
+Allow roughly 25 GB for tools, both Wine builds and an emulator image.
+The default APK excludes Wine. `-PwineRuntime=true` includes the locally packaged
+ABIs; Windows PE/data assets go into private storage, while Unix executable code
+is installed by Android's package manager. No Microsoft binaries are included.
 
 ```sh
 ./scripts/setup.sh --emulator
 ./scripts/emulator-test.sh
+# After packaging Wine and rebuilding the APK:
+./scripts/emulator-test.sh -PwineRuntime=true
 ```
 
 The emulator uses Android 16 and a 2560×1600, 240 dpi landscape display. KVM is

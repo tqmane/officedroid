@@ -11,6 +11,32 @@ round trip, fork/wait and executable anonymous memory in a non-root Android UID;
 it also checks separate Activities share a prefix and the test screen is a tablet.
 Native host tests run on both x86_64 and ARM64 CI runners.
 
+Runtime path tests cover an aliased private directory, traversal attempts,
+escaping parent symlinks, and replacement of a dangling native-library symlink.
+With `-PwineRuntime=true`, the Wine test requires `wine --version`, successful
+`wineboot`, a registry file, and an actual Windows `cmd` write into drive C.
+It is skipped only when the default APK intentionally excludes Wine.
+APK builds, packaging and instrumentation share a lock to prevent output races.
+
+## Observed results (2026-10-07)
+
+- Local setup was rerun successfully; JDK 21, SDK 36, NDK r28c, CMake/Ninja,
+  Gradle 8.13, LLVM-MinGW, flex/bison/m4 and emulator components are installed.
+- Both Android ABI native builds, APK assembly and Android lint pass locally.
+- Wine 11.0 plus FreeType compiles and packages for both ABIs. Repeating the
+  x86_64 Wine build also succeeds.
+- [Core CI run 37648351231](https://github.com/tqmane/officedroid/actions/runs/37648351231)
+  passes host tests on x86_64/ARM64 and Android 16 tablet instrumentation.
+  The diagnostic APK passes three device tests; its Wine test is skipped.
+- Local software-only emulation boots but ddmlib times out reading device
+  properties before instrumentation. This is an unrun device test, not a pass.
+  GitHub Actions provides the working Android emulator test environment.
+- Wine device testing exposed private-directory path alias handling; a fix and
+  regression test are under CI verification. `wineboot` is not yet validated.
+
+The workflow uploads failure logs and JUnit reports, not just APKs. Wine build
+outputs are cached before device testing, so runtime fixes can reuse compilation.
+
 ## Milestone gates
 
 | Gate | Required evidence |

@@ -20,12 +20,28 @@ Inspected `configure.ac`, `dlls/wineandroid.drv`, `dlls/ntdll/unix/loader.c`,
   Android SELinux and seccomp behavior still needs a device test.
 
 `scripts/build-wine.sh` isolates host tools, target output and staged installation.
-It does not silently package unvalidated Wine binaries into the diagnostic APK.
+Both x86_64 and aarch64 builds complete with NDK r28c and LLVM-MinGW 20250709.
+`scripts/package-wine.py` produces optional APK inputs, verifies each ELF's ABI,
+and keeps native executable code in Android-installed libraries. Wine PE/data
+files are checksummed ZIP assets. `WineRuntime` extracts those into private
+storage and links native files to the current APK installation. It refreshes
+links after an APK update. The `files/prefix` location is shared across launchers.
+
+The numbered patches in `patches/wine/` are the entire Wine delta: a bionic
+header fix; explicit native DLL/data/loader paths; correction of stale Android
+driver declarations/callback signatures; removal of unused broken driver code
+and the obsolete upstream APK build; and exported JVM state for the driver.
+The JNI `WineActivity`/Surface bridge is not integrated into this app yet.
+The optional instrumentation test exercises the standalone, headless loader,
+`wineboot --init`, and a Windows `cmd` filesystem write. GUI and Office support
+must not be inferred from it.
+
 Autoconf/Automake/Meson are not prerequisites for this pinned source: Wine ships
 `configure` and uses its own Makefile generator. Install Autoconf only if changing
 `configure.ac`; Meson becomes relevant if adopting a dependency that uses it.
 
 Desktop ALSA, PulseAudio, X11, Wayland, CUPS, udev and GStreamer are excluded from
-the Android baseline. Missing target FreeType/GnuTLS and other optional libraries
+the Android baseline. FreeType 2.13.3 is built for the host tools and both Android
+targets. Missing target GnuTLS and other optional libraries
 must remain visible in configure logs; a baseline build does not promise Office
 font rendering, TLS, media or Vulkan support.

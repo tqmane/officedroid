@@ -58,7 +58,8 @@ jobs:
           python3 scripts/package-wine.py '${{ matrix.abi }}'
           ./scripts/build.sh -PwineRuntime=true
           git -C .tools/src/wine archive --format=tar.gz --output="$PWD/.build/wine-11.0-source.tar.gz" HEAD
-          tar -czf .build/officedroid-build-source.tar.gz scripts patches runtime app gradle gradlew gradlew.bat *.gradle gradle.properties LICENSE docs
+          git -C .tools/src/freetype archive --format=tar.gz --output="$PWD/.build/freetype-2.13.3-source.tar.gz" HEAD
+          git archive --format=tar.gz --output=.build/officedroid-build-source.tar.gz HEAD
       - name: Install emulator components
         if: matrix.abi == 'x86_64'
         run: ./scripts/setup.sh --emulator

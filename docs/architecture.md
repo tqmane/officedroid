@@ -17,6 +17,14 @@ execution, then Wine initialization, wineboot, a minimal Win32 executable, then
 GUI/input, then an official Office installer. Each stage needs its own observable
 result. A successful native probe cannot establish Wine or Office functionality.
 
+The optional Wine APK invokes the installed Wine loader as a native subprocess.
+Wine's Unix DLLs remain in Android's immutable native library directory; private
+ZIP assets contain Windows PE code and data. A verified layout maps private
+symlinks to installed native files. No application code is downloaded from an
+untrusted server. There is no bundled Linux distribution. The experimental
+headless API supports bounded commands and wineserver shutdown; it does not
+yet manage a shared graphical session's lifecycle.
+
 For future Wine integration, use a dedicated Android `:wine` process for the JNI
 Activity, with the launcher/manager in the main process. Wine owns thread and
 signal state; loading it in the manager process would couple crashes to the UI.

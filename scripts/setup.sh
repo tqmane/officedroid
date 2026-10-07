@@ -25,6 +25,9 @@ fi
 for dependency in gcc:build-essential g++:build-essential make:build-essential pkg-config:pkg-config curl:curl git:git unzip:unzip python3:python3 patch:patch flock:util-linux; do
     command -v "${dependency%%:*}" >/dev/null || packages+=("${dependency#*:}")
 done
+if $emulator; then
+    command -v tesseract >/dev/null || packages+=(tesseract-ocr tesseract-ocr-eng)
+fi
 if $wine; then
     for tool in bison flex m4; do command -v "$tool" >/dev/null || packages+=("$tool"); done
 fi

@@ -1,0 +1,17 @@
+From: OfficeDroid contributors
+Subject: [PATCH] crypt32: read Android's current Conscrypt trust store
+
+Android 14 and later publish system certificate roots in the Conscrypt APEX.
+Keep the legacy path for earlier devices, and preserve certificate verification.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/crypt32/unixlib.c
++++ b/dlls/crypt32/unixlib.c
+@@ -625,6 +625,7 @@
+  "/usr/share/ca-certificates/ca-bundle.crt",
+  "/usr/local/share/certs/",
+  "/etc/sfw/openssl/certs",
++ "/apex/com.android.conscrypt/cacerts", /* Android 14 and later */
+  "/etc/security/cacerts",  /* Android */
+ };
+ 

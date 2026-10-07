@@ -21,7 +21,7 @@ def hierarchy():
     return list(ET.fromstring(xml).iter('node'))
 
 
-try:
+def open_editor():
     adb('shell', 'am', 'force-stop', 'org.officedroid')
     adb('shell', 'am', 'start', '-W', '-n', 'org.officedroid/.MainActivity')
     nodes = hierarchy()
@@ -47,22 +47,44 @@ try:
         time.sleep(2)
     if window is None:
         raise RuntimeError('No Win32 application surface appeared; inspect wine-gui.log and screenshot')
+    return window
+
+
+def capture(name):
+    screenshot = output / (name + '.png')
+    screenshot.write_bytes(adb('exec-out', 'screencap', '-p'))
+    text = subprocess.check_output(['tesseract', str(screenshot), 'stdout'], timeout=30).decode()
+    (output / (name + '-ocr.txt')).write_text(text)
+    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
+                         capture_output=True, timeout=20)
+    (output / (name + '-wine.log')).write_bytes(log.stdout + log.stderr)
+    return re.sub(r'[^A-Z0-9]', '', text.upper())
+
+
+try:
+    # A previous successful run must never satisfy a later failed input test.
+    adb('shell', 'am', 'force-stop', 'org.officedroid')
+    adb('shell', 'run-as', 'org.officedroid', 'rm', '-f', 'files/prefix/drive_c/gui-smoke.txt')
+    window = open_editor()
     time.sleep(2)
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
-    adb('shell', 'input', 'text', 'OFFICEDROID_GUI_SAVED')
+    adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
     adb('shell', 'input', 'keycombination', '113', '47')  # Ctrl+S
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         document = adb('exec-out', 'run-as', 'org.officedroid', 'cat', 'files/prefix/drive_c/gui-smoke.txt')
         (output / 'gui-smoke.txt').write_bytes(document)
-        # Wine Notepad can save either UTF-8 or UTF-16.
-        if b'OFFICEDROID_GUI_SAVED' in document or 'OFFICEDROID_GUI_SAVED'.encode('utf-16le') in document:
+        if b'OFFICEDROIDGUI' in document or 'OFFICEDROIDGUI'.encode('utf-16le') in document:
             break
         time.sleep(1)
     else:
         raise RuntimeError('Android keyboard input and Ctrl+S did not persist the document')
-    print('PASS: Win32 editor accepted Android input and saved the document', flush=True)
+    assert 'OFFICEDROIDGUI' in capture('edited'), 'Saved input must also be visibly rendered'
+    open_editor()
+    time.sleep(2)
+    assert 'OFFICEDROIDGUI' in capture('reopened'), 'Reopened document must visibly contain the saved input'
+    print('PASS: Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
 finally:
     (output / 'screen.png').write_bytes(adb('exec-out', 'screencap', '-p'))
     log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],

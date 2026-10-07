@@ -15,6 +15,9 @@ under its Apache-2.0 source notice.
 | [Wine](https://github.com/wine-mirror/wine/blob/wine-11.0/LICENSE) | LGPL-2.1-or-later, with bundled component notices; optional APK runtime |
 | [FreeType 2.13.3](https://github.com/freetype/freetype/blob/VER-2-13-3/LICENSE.TXT) | FreeType License (FTL) selected, with contributed component notices; host font tool and optional APK runtime |
 | [Bottles](https://github.com/bottlesdevs/Bottles) | GPL-3.0; research only |
+| [GnuTLS](https://www.gnutls.org/) | 3.8.13 library, LGPL-2.1-or-later; bundled dependencies' notices also retained |
+| [Nettle](https://www.lysator.liu.se/~nisse/nettle/) / [GMP](https://gmplib.org/) | 3.10.2 / 6.3.0, LGPL-3.0-or-later option; dynamically linked |
+| [7-Zip](https://www.7-zip.org/license.txt) | 25.01 host extraction tool, LGPL/BSD with unRAR restriction; not included in APK |
 | [Soda / Bottles Wine](https://github.com/bottlesdevs/wine) | Wine-derived, per-file and patch notices must be retained; research only |
 | [Bottles build-tools](https://github.com/bottlesdevs/build-tools) | Inspected scripts carry MIT notices; research only |
 | [Wine-Staging](https://github.com/wine-staging/wine-staging) | Inspect per-patch licensing before any import; metadata reviewed, not built |
@@ -29,7 +32,7 @@ under its Apache-2.0 source notice.
 Portions of this software are copyright © 1996–2024 The FreeType Project
 (www.freetype.org). All rights reserved.
 
-Wine workflow artifacts include the exact unmodified Wine and FreeType sources
+Wine workflow artifacts include the exact unmodified Wine, FreeType, GnuTLS, Nettle and GMP sources
 and the complete OfficeDroid source revision containing patches and build scripts.
 The APK's license assets retain Wine's LGPL, author list, bundled-library notices,
 FreeType notices, and LLVM/MinGW notices. The runtime is not signature-locked:

@@ -16,6 +16,16 @@ public class WineRuntimeTest {
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
         assertTrue(WineRuntime.run(context, 30, "--version").contains("wine-11.0"));
     }
+    @Test public void windowsHttpsValidatesMicrosoftCertificate() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
+        File runtime = WineRuntime.prepare(context);
+        try {
+            assertTrue(WineRuntime.run(context, 90, new File(runtime, "https-probe.exe").getAbsolutePath()).contains("TLS_OK"));
+        } finally {
+            WineRuntime.stop(context);
+        }
+    }
     @Test public void wineBootAndWindowsCommand() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));

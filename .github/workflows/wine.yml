@@ -41,9 +41,9 @@ jobs:
         id: wine-cache
         with:
           path: .build
-          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**') }}
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**') }}
           restore-keys: |
-            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
+            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
       - name: Build Wine and preserve the real exit code
         shell: bash
         run: |
@@ -62,6 +62,9 @@ jobs:
           git -C .tools/src/wine archive --format=tar.gz --output="$PWD/.build/wine-11.0-source.tar.gz" HEAD
           git -C .tools/src/freetype archive --format=tar.gz --output="$PWD/.build/freetype-2.13.3-source.tar.gz" HEAD
           git archive --format=tar.gz --output=.build/officedroid-build-source.tar.gz HEAD
+          cp .tools/downloads/gmp-6.3.0.tar.xz .build/gmp-6.3.0-source.tar.xz
+          cp .tools/downloads/nettle-3.10.2.tar.gz .build/nettle-3.10.2-source.tar.gz
+          cp .tools/downloads/gnutls-3.8.13.tar.xz .build/gnutls-3.8.13-source.tar.xz
       - name: Install emulator components
         if: matrix.abi == 'x86_64'
         run: ./scripts/setup.sh --emulator
@@ -85,7 +88,7 @@ jobs:
           path: |
             .build/logs/
             .build/wine-*/config.log
-            .build/*source.tar.gz
+            .build/*source.tar.*
             .build/emulator/
             app/build/outputs/apk/
             app/build/reports/

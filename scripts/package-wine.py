@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import struct
+import subprocess
 import sys
 import zipfile
 
@@ -26,9 +27,15 @@ notice_sources = {
     'wine': (tool_dir / 'src/wine', ['LICENSE', 'LICENSE.OLD', 'COPYING.LIB', 'AUTHORS']),
     'freetype': (tool_dir / 'src/freetype', ['LICENSE.TXT', 'docs/FTL.TXT', 'src/bdf/README',
         'src/pcf/README', 'src/gzip/zlib.h', 'src/base/fthash.c', 'src/autofit/ft-hb.c']),
+    'gmp': (tool_dir / 'src/gmp-6.3.0', ['COPYING', 'COPYING.LESSERv3', 'COPYINGv2', 'COPYINGv3', 'AUTHORS']),
+    'nettle': (tool_dir / 'src/nettle-3.10.2', ['COPYING.LESSERv3', 'COPYINGv2', 'COPYINGv3', 'AUTHORS']),
+    'gnutls': (tool_dir / 'src/gnutls-3.8.13', ['COPYING', 'COPYING.LESSERv2', 'README.md', 'AUTHORS']),
     'llvm-mingw': (tool_dir / 'llvm-mingw', ['LICENSE.TXT']),
 }
 for component, (source, names) in notice_sources.items():
+    if component == 'gnutls':
+        names += [p.relative_to(source).as_posix() for p in source.rglob('*')
+                  if p.is_file() and p.name.startswith(('LICENSE', 'COPYING', 'NOTICE')) and p.relative_to(source).as_posix() not in names]
     if component == 'wine':
         names += [p.relative_to(source).as_posix() for p in (source / 'libs').rglob('*')
                   if p.is_file() and p.name.startswith(('LICENSE', 'COPYING', 'NOTICE'))]
@@ -43,6 +50,10 @@ for abi in abis:
     stage = root / f'.build/wine-install-{abi}/opt/officedroid'
     if not (stage / abi / 'bin/wineserver').is_file():
         sys.exit(f'Build Wine for {abi} before packaging')
+    compiler = 'aarch64' if abi == 'arm64-v8a' else 'x86_64'
+    probe = root / f'.build/https-probe-{abi}.exe'
+    subprocess.run([str(tool_dir / f'llvm-mingw/bin/{compiler}-w64-mingw32-clang'),
+                    str(root / 'runtime/win32/https-probe.c'), '-O2', '-lwinhttp', '-o', str(probe)], check=True)
     native = root / '.build/wine-jniLibs' / abi
     native.mkdir(parents=True, exist_ok=True)
     mapping = {}
@@ -50,8 +61,10 @@ for abi in abis:
     archive = assets / f'runtime-{abi}.zip'
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as output:
         files = [(p, p.relative_to(stage).as_posix()) for p in sorted(stage.rglob('*')) if p.is_file()]
-        freetype = root / f'.build/deps-{abi}/lib/libfreetype.so'
-        files.append((freetype, f'{abi}/lib/libfreetype.so'))
+        files.append((probe, 'https-probe.exe'))
+        for dependency in sorted((root / f'.build/deps-{abi}/lib').glob('*.so*')):
+            if dependency.is_file():
+                files.append((dependency, f'{abi}/lib/{dependency.name}'))
         for path, relative in files:
             with path.open('rb') as source:
                 header = source.read(64)
@@ -61,7 +74,7 @@ for abi in abis:
                 if len(header) < 64 or header[4:6] != b'\x02\x01' or struct.unpack_from('<H', header, 18)[0] != machine:
                     sys.exit(f'Wrong ELF ABI for {abi}: {relative}')
                 name = {'wine': 'libwine.so', 'wineserver': 'libwineserver.so', 'ntdll.so': 'libntdll.so'}.get(
-                    path.name, 'libod_' + path.name.replace('.', '_') + '.so')
+                    path.name, 'libod_' + path.resolve().name.replace('.', '_') + '.so')
                 digest = hashlib.sha256(path.read_bytes()).hexdigest()
                 if name in destinations and destinations[name] != digest:
                     sys.exit(f'Conflicting native library name: {name}')

@@ -1,0 +1,25 @@
+From: OfficeDroid contributors
+Subject: [PATCH] server: locate NLS data in the APK-managed runtime
+
+The wineserver ELF is installed separately from private Wine data on Android.
+Use the same explicit data directory as ntdll instead of deriving it from the
+package manager's native library path.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/server/unicode.c
++++ b/server/unicode.c
+@@ -279,6 +279,14 @@
+ {
+     char *p, *dir, *ret;
+ 
++#ifdef __ANDROID__
++    if ((p = getenv( "OFFICEDROID_DATA_DIR" )))
++    {
++        if (asprintf( &ret, "%s/nls", p ) == -1) return NULL;
++        return ret;
++    }
++#endif
++
+ #if defined(__linux__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__)
+     dir = realpath( "/proc/self/exe", NULL );
+ #elif defined (__FreeBSD__) || defined(__DragonFly__)

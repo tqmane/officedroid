@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+api=${1:-36}
+case "$api" in
+    36) image=arm64-v8a-36_r02.zip; image_sha=62ad6714df790f89c8a8ad32552ffe20bb16fe87 ;;
+    35) image=arm64-v8a-35_r02.zip; image_sha=2026a06409db630b56711afdbffb457c1dbaed49 ;;
+    *) echo 'Usage: setup-arm64-emulator.sh [35|36]' >&2; exit 2 ;;
+esac
 case "$(uname -s)-$(uname -m)" in
     Darwin-arm64) host=mac ;;
     Linux-x86_64) host=linux ;;
@@ -64,10 +70,10 @@ yes 2>/dev/null | "$sdk/cmdline-tools/19.0/bin/sdkmanager" --sdk_root="$sdk" --l
 status=${PIPESTATUS[1]}
 set -o pipefail
 ((status == 0)) || exit "$status"
-install_archive https://dl.google.com/android/repository/sys-img/android/arm64-v8a-36_r02.zip \
-    62ad6714df790f89c8a8ad32552ffe20bb16fe87 "$sdk/system-images/android-36/default"
+install_archive "https://dl.google.com/android/repository/sys-img/android/$image" \
+    "$image_sha" "$sdk/system-images/android-$api/default"
 echo no | "$sdk/cmdline-tools/19.0/bin/avdmanager" create avd --force \
-    --name officedroid-arm64 --package 'system-images;android-36;default;arm64-v8a'
+    --name officedroid-arm64 --package "system-images;android-$api;default;arm64-v8a"
 cat >> "$ANDROID_AVD_HOME/officedroid-arm64.avd/config.ini" <<'EOF'
 hw.lcd.width=800
 hw.lcd.height=1280

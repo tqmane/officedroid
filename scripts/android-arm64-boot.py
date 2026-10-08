@@ -60,6 +60,9 @@ with (output / 'emulator.log').open('w') as log:
                                                    'getprop', 'ro.product.cpu.abi'],
                                                   timeout=15, env=env, text=True).strip()
                     result['actual_abi'] = abi
+                    result['sdk'] = subprocess.check_output([adb, '-s', 'emulator-5554', 'shell',
+                                                            'getprop', 'ro.build.version.sdk'],
+                                                           timeout=15, env=env, text=True).strip()
                     if abi != 'arm64-v8a':
                         raise RuntimeError(f'Wrong Android ABI: {abi}')
                     with (output / 'boot.png').open('wb') as screen:

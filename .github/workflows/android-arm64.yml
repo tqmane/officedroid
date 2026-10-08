@@ -40,9 +40,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Install pinned ARM64 Android emulator and image
-        run: bash scripts/setup-arm64-emulator.sh
-      - name: Boot ARM64 Android with software execution
+      - name: Install Android 15 ARM64 to isolate the Android 16 ART crash
+        run: bash scripts/setup-arm64-emulator.sh 35
+      - name: Measure Android 15 ARM64 software boot
         run: python3 scripts/android-arm64-boot.py
       - uses: actions/upload-artifact@v4
         if: always()

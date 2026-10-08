@@ -21,9 +21,12 @@ from pathlib import Path
 import sys
 config = Path(sys.argv[1])
 lines = [line for line in config.read_text().splitlines()
-         if not line.startswith(('disk.dataPartition.size', 'hw.initialOrientation'))]
+         if not line.startswith(('disk.dataPartition.size', 'hw.initialOrientation',
+                                 'hw.lcd.width', 'hw.lcd.height', 'hw.lcd.density'))]
 config.write_text('\n'.join(lines + ['disk.dataPartition.size = 17179869184',
-                                   'hw.initialOrientation = landscape']) + '\n')
+                                   'hw.initialOrientation = landscape',
+                                   'hw.lcd.width = 800', 'hw.lcd.height = 1280',
+                                   'hw.lcd.density = 120']) + '\n')
 PYCONFIG
 accel=auto
 boot_timeout=600
@@ -35,7 +38,7 @@ emulator_cores=$(nproc)
 ((emulator_cores <= 4)) || emulator_cores=4
 echo "Emulator: $emulator_cores vCPUs, 3072 MiB RAM, acceleration $accel"
 emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
-    -gpu swiftshader_indirect -accel "$accel" -cores "$emulator_cores" -memory 3072 \
+    -gpu swiftshader -accel "$accel" -cores "$emulator_cores" -memory 3072 \
     > .build/emulator/emulator.log 2>&1 &
 emulator_pid=$!
 export ANDROID_SERIAL=emulator-5554
@@ -51,8 +54,6 @@ for attempt in 1 2; do
         ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }
         sleep 2
     done
-    adb shell wm size 2560x1600
-    adb shell wm density 240
     adb shell settings put system accelerometer_rotation 0
     adb shell settings put system user_rotation 0
     adb shell wm dismiss-keyguard
@@ -68,6 +69,12 @@ for attempt in 1 2; do
     adb reboot
     timeout 30s adb wait-for-disconnect
 done
+# Initial System UI startup competes with package initialization on CI hosts.
+# Boot at a smaller tablet resolution, then require a stable home screen again
+# at the actual Office test resolution before installing any application.
+adb shell wm size 2560x1600
+adb shell wm density 240
+python3 scripts/emulator-ready.py .build/emulator/boot-test-resolution.xml
 # Keep evidence even if the device disconnects during a graphics failure.
 adb logcat -v threadtime -b main -b system -b crash > .build/emulator/live-logcat.txt 2>&1 &
 logcat_pid=$!

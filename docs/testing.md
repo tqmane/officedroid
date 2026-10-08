@@ -143,6 +143,18 @@ official Android 16 AOSP (`default;x86_64`) system image, without the Google
 apps background services, and recreates its dedicated tablet AVD configuration.
 OfficeDroid's UI checks and all editing assertions remain required.
 
+Run [37722194013](https://github.com/tqmane/officedroid/actions/runs/37722194013)
+at `22c1bc0` passes all seven instrumented tests and the complete 64-bit **and
+32-bit** Notepad editing/save/cold-reopen tests on the AOSP image. The WoW64
+completion fix is now verified on Android. Official ODT renders its Microsoft
+"We're getting things ready" window, but remains there until the 30-minute
+timeout. Its configuration-service HTTPS request succeeds; the installer log
+stops during `UniversalBootstrapper.Execute3`, before Office installation.
+There is no evidence of any Office editing screen. Installer-specific HTTP,
+service and process tracing and post-failure WineDbg thread backtraces now
+capture the next failure. Manual workflow runs can use a shorter ODT time limit
+for this startup-hang investigation; normal runs retain 1,800 seconds.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet
@@ -180,9 +192,10 @@ installing those Python packages.
 | Office applications | Word/Excel/PowerPoint edit/save in the shared prefix |
 | Files and concurrency | Content URI import/write-back, simultaneous apps, recovery |
 
-Keyboard shortcuts (copy/paste/undo/save), right click, wheel, selection, touch
-and stylus remain unrun for Wine until the GUI gate. UI launchers are not a
-substitute for these tests. Cross-build success is not Android runtime success.
+Keyboard shortcuts (copy/paste/undo/save) pass in 32/64-bit Notepad. Right click,
+wheel, arbitrary selection and stylus coverage remain incomplete. UI launchers
+are not a substitute for editing tests. Cross-build success is not Android
+runtime success.
 
 ## Initial cloud host observations
 

@@ -77,7 +77,7 @@ if ((${#launch_args[@]})); then
     ((instrumentation_status == 0)) || exit "$instrumentation_status"
     ((gui_status == 0)) || exit "$gui_status"
     python3 scripts/wine-gui-test.py --wow64
-    python3 scripts/office-install-test.py
+    python3 scripts/office-install-test.py --timeout-seconds "${OFFICE_INSTALL_TIMEOUT_SECONDS:-1800}"
     python3 scripts/office-edit-test.py
 fi
 exit "$instrumentation_status"

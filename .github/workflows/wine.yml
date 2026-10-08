@@ -1,6 +1,12 @@
 name: Wine Android
 on:
   workflow_dispatch:
+    inputs:
+      office_install_timeout_seconds:
+        description: 'ODT time limit (shorter runs are useful when diagnosing a startup hang)'
+        default: '1800'
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
@@ -83,6 +89,8 @@ jobs:
       - name: Run Wine on Android 16
         if: matrix.abi == 'x86_64'
         timeout-minutes: 65
+        env:
+          OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '1800' }}
         run: ./scripts/emulator-test.sh -PwineRuntime=true
       - uses: actions/upload-artifact@v4
         if: always()

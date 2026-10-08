@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run official ODT inside the Android app, retaining installer evidence, never binaries."""
 from pathlib import Path
+import argparse
 import json
 import hashlib
 import re
@@ -11,15 +12,55 @@ import xml.etree.ElementTree as ET
 
 output = Path('.build/emulator/office-install')
 output.mkdir(parents=True, exist_ok=True)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--timeout-seconds', type=int, default=1800)
+args = parser.parse_args()
+if args.timeout_seconds < 120:
+    parser.error('--timeout-seconds must be at least 120')
 
 
 def adb(*args, **kwargs):
-    return subprocess.check_output(['adb', *args], timeout=30, **kwargs)
+    return subprocess.check_output(['adb', *args], timeout=kwargs.pop('timeout', 30), **kwargs)
 
 
-def private(*args):
+def private(*args, **kwargs):
     # Shell v2 preserves the remote exit code; -T keeps binary streams unchanged.
-    return adb('shell', '-T', 'run-as', 'org.officedroid', *map(shlex.quote, args))
+    return adb('shell', '-T', 'run-as', 'org.officedroid', *map(shlex.quote, args), **kwargs)
+
+
+def diagnose():
+    """Capture Windows stacks on failure before the emulator is torn down."""
+    (output / 'android-processes.txt').write_bytes(adb('shell', 'ps', '-A', '-T'))
+    # The ready marker records the APK native directory used by WineRuntime.
+    markers = private('find', 'files', '-maxdepth', '2', '-name', '.ready').decode().splitlines()
+    for marker in markers:
+        native = private('cat', marker).decode()
+        try:
+            private('test', '-x', native + '/libwine.so')
+        except subprocess.CalledProcessError:
+            continue
+        runtime = private('readlink', '-f', str(Path(marker).parent)).decode().strip()
+        app = private('pwd').decode().strip()
+        dlls = runtime + '/x86_64/lib/wine'
+        environment = [
+            'HOME=' + app + '/files', 'TMPDIR=' + app + '/cache/wine',
+            'WINEPREFIX=' + app + '/files/prefix', 'WINESERVER=' + native + '/libwineserver.so',
+            'WINELOADER=' + native + '/libwine.so', 'WINEDLLPATH=' + dlls,
+            'OFFICEDROID_DLL_DIR=' + dlls, 'OFFICEDROID_DATA_DIR=' + runtime + '/share/wine',
+            'LD_LIBRARY_PATH=' + native + ':' + dlls + '/x86_64-unix:' + runtime + '/x86_64/lib',
+            'WINEDEBUG=-all', 'WINEDLLOVERRIDES=mscoree,mshtml=',
+        ]
+        # Run only after installation failed: attaching a debugger interrupts
+        # threads and must not influence a successful installation measurement.
+        command = ['timeout', '45', 'env', *environment, native + '/libwine.so',
+                   r'C:\windows\system32\winedbg.exe', '--command', 'info proc\ninfo threads\nbt all']
+        try:
+            data = private(*command, timeout=55, stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as error:
+            data = error.output
+        (output / 'windows-stacks.txt').write_bytes(data)
+        return
+    raise RuntimeError('No current APK runtime found for WineDbg')
 
 
 def screen(name):
@@ -52,7 +93,7 @@ try:
     button = next(n for n in nodes if n.get('text', '').casefold() == 'install microsoft 365')
     left, top, right, bottom = map(int, re.findall(r'\d+', button.get('bounds')))
     adb('shell', 'input', 'tap', str((left + right) // 2), str((top + bottom) // 2))
-    deadline = time.monotonic() + 1800
+    deadline = time.monotonic() + args.timeout_seconds
     checkpoint = 0
     while time.monotonic() < deadline:
         completed = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat', directory + '/exit-code.txt'], capture_output=True, timeout=15)
@@ -73,7 +114,7 @@ try:
             checkpoint = time.monotonic() + 60
         time.sleep(5)
     else:
-        raise TimeoutError('ODT did not finish within 30 minutes')
+        raise TimeoutError(f'ODT did not finish within {args.timeout_seconds} seconds')
 finally:
     screen('final')
     log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'], capture_output=True, timeout=20)
@@ -82,3 +123,8 @@ finally:
     for index, filename in enumerate(files):
         (output / f'installer-{index}.log').write_bytes(private('cat', filename))
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+    if not result['installer_passed']:
+        try:
+            diagnose()
+        except Exception as error:
+            (output / 'diagnostic-error.txt').write_text(str(error) + '\n')

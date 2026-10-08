@@ -41,5 +41,9 @@ are saved under `.build/emulator/office-install/`. Microsoft binaries are not
 uploaded as build artifacts or included in APKs. Account activation remains
 the user's normal Microsoft licensing flow.
 
-Installer execution and Office editing are not yet verified. An installer exit
-code and executable presence are separate from each application's editing tests.
+Run [37722194013](https://github.com/tqmane/officedroid/actions/runs/37722194013)
+verifies ODT's actual preparation window on Android, but installation stalls
+there for 30 minutes. No Office application is installed or verified. Subsequent
+runs retain installer-specific network/service traces and post-failure WineDbg
+backtraces to identify the wait. An installer exit code and executable presence
+remain separate from each application's editing tests.

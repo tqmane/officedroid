@@ -88,6 +88,9 @@ public class WineActivity extends Activity
             File runtime = org.officedroid.WineRuntime.prepare( this );
             Map<String,String> environ = org.officedroid.WineRuntime.environment( this, runtime );
             environ.put( "WINEDEBUG", "+timestamp,+pid,+tid,err+all,warn+android,warn+seh,trace+android" );
+            if (getIntent().getBooleanExtra( "install_office", false ))
+                environ.put( "WINEDEBUG", environ.get( "WINEDEBUG" )
+                             + ",trace+winhttp,trace+wininet,trace+service,trace+process,trace+loaddll" );
             environ.put( "WINEDEBUGLOG", new File( getFilesDir(), "wine-gui.log" ).toString() );
             File document = new File( org.officedroid.MainActivity.prefix( this ), "drive_c/gui-smoke.txt" );
             document.getParentFile().mkdirs();

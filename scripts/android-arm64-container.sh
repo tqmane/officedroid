@@ -13,7 +13,12 @@ cd "$root"
 output=.build/arm64-container
 mkdir -p "$output"
 uname -a > "$output/host.txt"
-image=redroid/redroid@sha256:e194edc99aa364358d1f8c214acb18b6d006c74fa0561f39259a20173ec30b66
+export ANDROID_CONTAINER_API=${ANDROID_CONTAINER_API:-35}
+case $ANDROID_CONTAINER_API in
+    35) image=redroid/redroid@sha256:dc2024a999dd0acb1112a23cddc9537ec8cb60a0dbe5a87ce9fbd75a2f5e94d2 ;;
+    36) image=redroid/redroid@sha256:e194edc99aa364358d1f8c214acb18b6d006c74fa0561f39259a20173ec30b66 ;;
+    *) echo 'Supported container API levels: 35 and 36' >&2; exit 2 ;;
+esac
 name=officedroid-arm64-boot
 cleanup() {
     docker logs "$name" > "$output/container.log" 2>&1 || true
@@ -48,11 +53,13 @@ docker run --platform linux/arm64 -d --privileged --name "$name" \
     androidboot.redroid_gpu_mode=guest
 python3 - <<'PY'
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
 output = Path('.build/arm64-container')
 result = {'containerized': True, 'boot_completed': False, 'expected_abi': 'arm64-v8a'}
+result['expected_sdk'] = os.environ['ANDROID_CONTAINER_API']
 start = time.monotonic()
 def adb(*args):
     return subprocess.check_output(['adb', '-s', '127.0.0.1:5555', *args], timeout=20, stderr=subprocess.STDOUT)
@@ -64,7 +71,7 @@ try:
             # with redroid's software gralloc. SurfaceFlinger reads this AOSP
             # property on its next automatic restart; normal rendering remains
             # enabled and must produce the screenshot below.
-            if not result.get('shader_warmup_disabled'):
+            if result['expected_sdk'] == '36' and not result.get('shader_warmup_disabled'):
                 adb('shell', 'setprop', 'service.sf.prime_shader_cache', 'false')
                 result['shader_warmup_disabled'] = (
                     adb('shell', 'getprop', 'service.sf.prime_shader_cache').strip() == b'false'
@@ -73,7 +80,7 @@ try:
                 result['actual_abi'] = adb('shell', 'getprop', 'ro.product.cpu.abi').decode().strip()
                 result['sdk'] = adb('shell', 'getprop', 'ro.build.version.sdk').decode().strip()
                 result['selinux'] = adb('shell', 'getenforce').decode().strip()
-                assert result['actual_abi'] == 'arm64-v8a' and result['sdk'] == '36', result
+                assert result['actual_abi'] == 'arm64-v8a' and result['sdk'] == result['expected_sdk'], result
                 (output / 'properties.txt').write_bytes(adb('shell', 'getprop'))
                 (output / 'boot.png').write_bytes(adb('exec-out', 'screencap', '-p'))
                 result['boot_completed'] = True

@@ -9,7 +9,7 @@ provides separate launchers and a real native-executable diagnostic. An optional
 APK packages Wine 11.0 and FreeType built for Android. Android 16 x86_64 tests
 verify Wine initialization, 32/64-bit Windows commands, validated HTTPS and a
 persisted shared prefix. Both 32-bit and 64-bit Win32 Notepad display keyboard input,
-copies/pastes, undoes changes, saves and shows the saved document after a cold
+copy/paste, undo changes, save and show the saved document after a cold
 restart. Microsoft Office installation, editing, authentication, document
 write-back and a shared graphical session lifecycle are not yet working.
 Launcher entries alone do not demonstrate Office compatibility.

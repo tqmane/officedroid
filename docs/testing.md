@@ -155,6 +155,17 @@ service and process tracing and post-failure WineDbg thread backtraces now
 capture the next failure. Manual workflow runs can use a shorter ODT time limit
 for this startup-hang investigation; normal runs retain 1,800 seconds.
 
+Diagnostic run [37726293879](https://github.com/tqmane/officedroid/actions/runs/37726293879)
+at `9f25cd0` again passes Android instrumentation and both complete Notepad
+editing tests. ODT still stops at the preparation window. HTTP traces show the
+configuration requests finishing successfully, with no Office payload request.
+The main installer thread's last process trace queries `TMP`. The attempted
+backtrace capture fails: Android's APK path contains `=`, so `env` consumes the
+loader path as another environment assignment. The diagnostic now executes it
+through a shell positional argument (verified with an equivalent host path).
+File and synchronization traces are enabled in the installer batch file, limiting
+their scope to ODT and its children. Office installation/editing remains unverified.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet
@@ -179,7 +190,8 @@ documents are retained separately for each application. An account dialog or a
 read-only editor cannot satisfy these assertions. These tests remain unrun until
 the runtime and installer gates pass. Fixture regeneration requirements are in
 `tests/generate-office-fixtures.py`; CI uses the committed documents without
-installing those Python packages.
+installing those Python packages. An application's failure is recorded before
+testing the remaining applications; the overall result requires all three to pass.
 
 ## Milestone gates
 

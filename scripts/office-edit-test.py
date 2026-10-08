@@ -116,9 +116,15 @@ for app, extension, initial in [('Word', 'docx', 'INITIALWORD'),
         visible_token(directory / 'reopened', marker)
         result['passed'] = True
         print(f'PASS: {app} displayed, edited, saved and reopened the document', flush=True)
+    except Exception as error:
+        result['error'] = f'{type(error).__name__}: {error}'
+        print(f"FAIL: {app}: {result['error']}", flush=True)
     finally:
         screen(directory / 'final')
         log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
                              capture_output=True, timeout=20)
         (directory / 'wine-gui.log').write_bytes(log.stdout + log.stderr)
         (output / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+
+if not all(result['passed'] for result in results):
+    raise SystemExit('Office editing failed; see each application result and screenshot')

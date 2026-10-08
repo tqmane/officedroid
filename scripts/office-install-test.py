@@ -52,13 +52,18 @@ def diagnose():
         ]
         # Run only after installation failed: attaching a debugger interrupts
         # threads and must not influence a successful installation measurement.
-        command = ['timeout', '45', 'env', *environment, native + '/libwine.so',
+        # Android's APK path contains '='. Passing it directly to env makes it
+        # another NAME=VALUE assignment, so use a shell with positional arguments.
+        command = ['timeout', '45', 'env', *environment, '/system/bin/sh', '-c', 'exec "$@"',
+                   'wine-debugger', native + '/libwine.so',
                    r'C:\windows\system32\winedbg.exe', '--command', 'info proc\ninfo threads\nbt all']
         try:
             data = private(*command, timeout=55, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as error:
             data = error.output
         (output / 'windows-stacks.txt').write_bytes(data)
+        if b'Backtracing for thread' not in data:
+            raise RuntimeError('WineDbg did not produce thread backtraces; see windows-stacks.txt')
         return
     raise RuntimeError('No current APK runtime found for WineDbg')
 

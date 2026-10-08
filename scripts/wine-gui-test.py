@@ -3,10 +3,12 @@
 from pathlib import Path
 import re
 import subprocess
+import sys
 import time
 import xml.etree.ElementTree as ET
 
-output = Path('.build/emulator/gui')
+wow64 = '--wow64' in sys.argv[1:]
+output = Path('.build/emulator/gui-wow64' if wow64 else '.build/emulator/gui')
 output.mkdir(parents=True, exist_ok=True)
 
 
@@ -34,7 +36,8 @@ def open_editor():
     adb('shell', 'am', 'force-stop', 'org.officedroid')
     adb('shell', 'am', 'start', '-W', '-n', 'org.officedroid/.MainActivity')
     nodes = hierarchy()
-    button = next(n for n in nodes if n.get('text', '').casefold() == 'open windows editor')
+    label = 'open 32-bit windows editor' if wow64 else 'open windows editor'
+    button = next(n for n in nodes if n.get('text', '').casefold() == label)
     x1, y1, x2, y2 = map(int, re.findall(r'\d+', button.get('bounds')))
     adb('shell', 'input', 'tap', str((x1 + x2) // 2), str((y1 + y2) // 2))
     deadline = time.monotonic() + 180
@@ -131,7 +134,7 @@ try:
     wait_for_text('edited', 'OFFICEDROIDGUI')
     open_editor()
     wait_for_text('reopened', 'OFFICEDROIDGUI')
-    print('PASS: Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
+    print(f'PASS: {"WoW64" if wow64 else "64-bit"} Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
 finally:
     for name, command in [('wine-gui.log', ['run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log']),
                           ('screen.png', ['screencap', '-p'])]:

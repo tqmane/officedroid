@@ -56,8 +56,9 @@ try:
     checkpoint = 0
     while time.monotonic() < deadline:
         completed = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat', directory + '/exit-code.txt'], capture_output=True, timeout=15)
-        if completed.returncode == 0:
-            result['exit_code'] = int(completed.stdout.strip())
+        exit_code = completed.stdout.strip()
+        if completed.returncode == 0 and exit_code:
+            result['exit_code'] = int(exit_code)
             assert result['exit_code'] == 0, f"ODT failed with exit code {result['exit_code']}"
             for exe in ['WINWORD.EXE', 'EXCEL.EXE', 'POWERPNT.EXE']:
                 private('test', '-s', 'files/prefix/drive_c/Program Files/Microsoft Office/root/Office16/' + exe)

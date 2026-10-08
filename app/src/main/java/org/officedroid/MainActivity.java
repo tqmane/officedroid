@@ -65,6 +65,10 @@ public class MainActivity extends Activity {
         addButton(column, "Run native diagnostics", this::diagnose);
         if (WineRuntime.available(this)) addButton(column, "Open Windows editor", () ->
             startActivity(new Intent(this, org.winehq.wine.WineActivity.class)));
+        if (WineRuntime.available(this) && Build.SUPPORTED_ABIS[0].equals("x86_64")) {
+            addButton(column, "Open 32-bit Windows editor", () -> startActivity(
+                new Intent(this, org.winehq.wine.WineActivity.class).putExtra("editor_wow64", true)));
+        }
         if (WineRuntime.available(this) && new File(prefix(this), "drive_c/office-setup/setup.exe").isFile()) {
             addButton(column, "Install Microsoft 365", () -> startActivity(
                 new Intent(this, org.winehq.wine.WineActivity.class).putExtra("install_office", true)));

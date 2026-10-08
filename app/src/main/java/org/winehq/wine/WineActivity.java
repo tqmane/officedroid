@@ -124,7 +124,8 @@ public class WineActivity extends Activity
             }
             else
             {
-                command.add( "notepad.exe" );
+                command.add( getIntent().getBooleanExtra( "editor_wow64", false )
+                             ? "C:\\windows\\syswow64\\notepad.exe" : "notepad.exe" );
                 command.add( "C:\\gui-smoke.txt" );
             }
             String error = wine_init( command.toArray( new String[0] ), env );

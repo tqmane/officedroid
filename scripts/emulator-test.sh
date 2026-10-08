@@ -73,6 +73,7 @@ if ((${#launch_args[@]})); then
     # Collect independent GUI evidence even if a networking check failed.
     ((instrumentation_status == 0)) || exit "$instrumentation_status"
     ((gui_status == 0)) || exit "$gui_status"
+    python3 scripts/wine-gui-test.py --wow64
     python3 scripts/office-install-test.py
     python3 scripts/office-edit-test.py
 fi

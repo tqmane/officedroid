@@ -1,0 +1,49 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: initialize the Unix driver for WoW64 GUI clients
+
+The official i386 Office Deployment Tool cannot load wineandroid.drv because
+the driver has no WoW64 Unix-call table. Convert its 32-bit callback address
+when registering the native user driver. Window operations then use win32u's
+existing native driver interface and the shared Android device.
+
+The JVM/device owner is the native 64-bit Explorer process. Reject the Java-only
+calls from WoW64 instead of interpreting a 32-bit kernel IRP as a native IRP.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/init.c
++++ b/dlls/wineandroid.drv/init.c
+@@ -579,1 +579,34 @@
+ C_ASSERT( ARRAYSIZE(__wine_unix_call_funcs) == unix_funcs_count );
++
++#ifdef _WIN64
++
++static NTSTATUS wow64_android_init( void *arg )
++{
++    const struct
++    {
++        ULONG register_window_callback;
++        UINT64 start_device_callback;
++    } *params32 = arg;
++    struct init_params params;
++
++    params.register_window_callback = UlongToPtr( params32->register_window_callback );
++    params.start_device_callback = params32->start_device_callback;
++    return android_init( &params );
++}
++
++static NTSTATUS wow64_java_only_call( void *arg )
++{
++    /* The Android JVM and its device thread are always native 64-bit. */
++    return STATUS_NOT_SUPPORTED;
++}
++
++const unixlib_entry_t __wine_unix_call_wow64_funcs[] =
++{
++    wow64_java_only_call,
++    wow64_android_init,
++    wow64_java_only_call,
++    wow64_java_only_call,
++    wow64_java_only_call,
++};
++C_ASSERT( ARRAYSIZE(__wine_unix_call_wow64_funcs) == unix_funcs_count );
++#endif

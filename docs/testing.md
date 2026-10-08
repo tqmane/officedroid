@@ -112,6 +112,17 @@ staging and private file checks now use non-PTY shell v2 (`adb shell -T`), which
 preserves binary input, waits for completion and propagates command failures.
 Installer execution and the three Office editing tests remain unverified.
 
+Run [37716247862](https://github.com/tqmane/officedroid/actions/runs/37716247862)
+at `09f50bc` verifies all staged ODT files and starts the official installer.
+The installer is a 32-bit executable and cannot initialize the Android GUI
+driver: unlike Wine's other GUI drivers, wineandroid lacks a WoW64 Unix-call
+table. The new driver thunk marshals its initialization arguments; CI now also
+requires 32-bit Notepad input/save/cold-reopen before attempting ODT. This fix
+has compiled locally but has not yet passed its Android runtime check.
+The installer batch file also writes its exit code with the redirect before
+`echo`, avoiding interpretation of a numeric exit code as a file descriptor.
+Neither Office installation nor any Office editing screen has passed.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

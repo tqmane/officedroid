@@ -35,7 +35,8 @@ docker pull --platform linux/arm64 "$image"
 docker image inspect "$image" > "$output/image.json"
 docker run --platform linux/arm64 -d --privileged --name "$name" \
     -p 127.0.0.1:5555:5555 "$image" androidboot.use_memfd=true \
-    androidboot.redroid_width=1280 androidboot.redroid_height=800 androidboot.redroid_dpi=160
+    androidboot.redroid_width=1280 androidboot.redroid_height=800 androidboot.redroid_dpi=160 \
+    androidboot.redroid_gpu_mode=guest
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -50,6 +51,15 @@ try:
     while time.monotonic() - start < 600:
         subprocess.run(['adb', 'connect', '127.0.0.1:5555'], timeout=20, capture_output=True)
         try:
+            # Android 16's optional shader warmup crashes in drawHolePunchLayer
+            # with redroid's software gralloc. SurfaceFlinger reads this AOSP
+            # property on its next automatic restart; normal rendering remains
+            # enabled and must produce the screenshot below.
+            if not result.get('shader_warmup_disabled'):
+                adb('shell', 'setprop', 'service.sf.prime_shader_cache', 'false')
+                result['shader_warmup_disabled'] = (
+                    adb('shell', 'getprop', 'service.sf.prime_shader_cache').strip() == b'false'
+                )
             if adb('shell', 'getprop', 'sys.boot_completed').strip() == b'1':
                 result['actual_abi'] = adb('shell', 'getprop', 'ro.product.cpu.abi').decode().strip()
                 result['sdk'] = adb('shell', 'getprop', 'ro.build.version.sdk').decode().strip()

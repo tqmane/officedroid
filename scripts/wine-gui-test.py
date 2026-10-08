@@ -54,9 +54,12 @@ def open_editor():
 
 
 def capture(name):
-    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
+    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log'],
                          capture_output=True, timeout=20)
-    (output / (name + '-wine.log')).write_bytes(log.stdout + log.stderr)
+    if log.returncode == 0 and log.stdout:
+        (output / (name + '-wine.log')).write_bytes(log.stdout)
+    elif log.stderr:
+        (output / (name + '-log-error.txt')).write_bytes(log.stderr)
     screenshot = output / (name + '.png')
     screenshot.write_bytes(adb('exec-out', 'screencap', '-p'))
     text = subprocess.check_output(['tesseract', str(screenshot), 'stdout'], timeout=30).decode()
@@ -103,7 +106,7 @@ try:
     assert 'OFFICEDROIDGUI' in capture('reopened'), 'Reopened document must visibly contain the saved input'
     print('PASS: Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
 finally:
-    for name, command in [('wine-gui.log', ['run-as', 'org.officedroid', 'cat', 'files/wine-gui.log']),
+    for name, command in [('wine-gui.log', ['run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log']),
                           ('screen.png', ['screencap', '-p'])]:
         try:
             data = adb('exec-out', *command)

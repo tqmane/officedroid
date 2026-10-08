@@ -11,36 +11,12 @@ if timeout 10s adb devices | grep -q '^emulator-5554'; then
     echo 'emulator-5554 is already in use; leave the existing emulator untouched.' >&2
     exit 1
 fi
-# This dedicated AVD is wiped on every run. Recreate its configuration as well
-# so a previous Google APIs image cannot survive a switch to the AOSP image.
-avdmanager create avd --force --name officedroid-tablet --device medium_tablet \
-    --package 'system-images;android-36;default;x86_64'
-# Microsoft 365 needs room for both its download cache and installed files.
-python3 - "$ANDROID_AVD_HOME/officedroid-tablet.avd/config.ini" <<'PYCONFIG'
-from pathlib import Path
-import sys
-config = Path(sys.argv[1])
-lines = [line for line in config.read_text().splitlines()
-         if not line.startswith(('disk.dataPartition.size', 'hw.initialOrientation',
-                                 'hw.lcd.width', 'hw.lcd.height', 'hw.lcd.density'))]
-config.write_text('\n'.join(lines + ['disk.dataPartition.size = 17179869184',
-                                   'hw.initialOrientation = landscape',
-                                   'hw.lcd.width = 800', 'hw.lcd.height = 1280',
-                                   'hw.lcd.density = 120']) + '\n')
-PYCONFIG
-accel=auto
-boot_timeout=600
-if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
-    accel=off
-    boot_timeout=1800
-fi
-emulator_cores=$(nproc)
-((emulator_cores <= 4)) || emulator_cores=4
-echo "Emulator: $emulator_cores vCPUs, 3072 MiB RAM, acceleration $accel"
-emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
-    -gpu swiftshader -accel "$accel" -cores "$emulator_cores" -memory 3072 \
-    > .build/emulator/emulator.log 2>&1 &
-emulator_pid=$!
+# ARM64 is the device target even when the cross-build host is x86_64.
+# Keep the build SDK in this shell for Gradle; the boot helper isolates its AVD SDK.
+bash scripts/setup-arm64-emulator.sh
+python3 scripts/android-arm64-boot.py --keep-running --timeout-seconds "${EMULATOR_BOOT_TIMEOUT:-1800}"
+emulator_pid=$(python3 -c 'import json; print(json.load(open(".build/arm64-boot/result.json"))["emulator_pid"])')
+boot_timeout=1800
 export ANDROID_SERIAL=emulator-5554
 logcat_pid=
 cleanup() {
@@ -50,7 +26,7 @@ trap cleanup EXIT
 for attempt in 1 2; do
     deadline=$((SECONDS + ${EMULATOR_BOOT_TIMEOUT:-$boot_timeout}))
     while [[ $(timeout 5s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') != 1 ]]; do
-        kill -0 "$emulator_pid" || { tail -80 .build/emulator/emulator.log; exit 1; }
+        kill -0 "$emulator_pid" || { tail -80 .build/arm64-boot/emulator.log; exit 1; }
         ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }
         sleep 2
     done

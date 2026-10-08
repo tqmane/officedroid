@@ -7,16 +7,23 @@ No Windows Word, Excel or PowerPoint editing screen has been verified. Prior
 x86_64 Android results below are historical and do not validate this target.
 
 - ARM64 Wine compilation passes (run 37762079154). The Wine workflow currently
-  builds/packages ARM64 only; its green result does not mean Android or Office ran.
+  is being connected to the ARM64 runtime and Office gates. A build success
+  alone does not mean Android or Office ran.
 - Standard Ubuntu ARM has no `/dev/kvm`; standard macOS ARM rejects actual
   Hypervisor VM creation (`0xfae9400f`), measured in run 37762282587.
 - macOS emulator 37.2.12 ignores `-accel off` for ARM64 and still enables HVF.
   Explicit QEMU TCG also crashes in HVF initialization (run 37763903773).
   `android-arm64.yml` now measures the bundled AArch64 QEMU engine on a standard
   Linux host with software translation. Its guest ABI must be `arm64-v8a`.
+- Linux TCG run 37765669246 reaches ADB with `ro.product.cpu.abi=arm64-v8a`,
+  but Zygote repeatedly crashes in ART ClassLinker/boot-image initialization.
+  Boot never completes within 900 seconds. This is a system failure before APK
+  installation, not a passing Android test. The next run uses QEMU's `max` CPU
+  with one vCPU and a single TCG thread to test the emulator compatibility issue.
 - `scripts/build-fex.sh` builds pinned upstream FEX unchanged for i386 and AMD64
   Windows execution inside ARM64 Wine. Both PE DLL builds pass locally. Wine's
-  ARM64EC integration and Android execution remain under validation. x86/x64
+  ARM64EC build and APK packaging pass locally (2,122,816,967 expanded runtime
+  bytes, within the 2 GiB runtime limit); Android execution remains unverified. x86/x64
   network and RPC probes are mandatory in the Wine APK, including on ARM64.
 - Last historical Office installation (run 37757895102) passes all eleven runtime
   checks and both Notepad editing paths on x86_64 Android. Kerberos registration

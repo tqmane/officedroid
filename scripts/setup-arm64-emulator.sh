@@ -71,9 +71,10 @@ echo no | "$sdk/cmdline-tools/19.0/bin/avdmanager" create avd --force \
 cat >> "$ANDROID_AVD_HOME/officedroid-arm64.avd/config.ini" <<'EOF'
 hw.lcd.width=800
 hw.lcd.height=1280
-hw.lcd.density=160
+hw.lcd.density=120
+hw.initialOrientation=landscape
 hw.keyboard=yes
 showDeviceFrame=no
-disk.dataPartition.size=4G
+disk.dataPartition.size=24G
 EOF
 "$sdk/emulator/emulator" -version

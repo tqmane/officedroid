@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Measure ARM64 Android software boot on a standard Actions runner."""
 import json
+import argparse
 import os
 import platform
 from pathlib import Path
 import subprocess
 import time
 
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--keep-running', action='store_true', help='Caller must stop the recorded emulator PID')
+parser.add_argument('--timeout-seconds', type=int, default=900)
+args = parser.parse_args()
+if args.timeout_seconds < 1:
+    parser.error('--timeout-seconds must be positive')
 root = Path(__file__).resolve().parent.parent
 sdk = root / '.tools/android-arm64-sdk'
 output = root / '.build/arm64-boot'
@@ -15,10 +22,11 @@ env = dict(os.environ, ANDROID_HOME=str(sdk), ANDROID_SDK_ROOT=str(sdk),
            ANDROID_USER_HOME=str(root / '.tools/android-arm64-user'),
            ANDROID_AVD_HOME=str(root / '.tools/android-arm64-user/avd'))
 adb = str(sdk / 'platform-tools/adb')
-result = {'boot_completed': False, 'acceleration': 'off', 'expected_abi': 'arm64-v8a'}
+result = {'boot_completed': False, 'acceleration': 'off', 'expected_abi': 'arm64-v8a',
+          'qemu_cpu': 'max', 'vcpus': 1, 'tcg_threads': 'single'}
 start = time.monotonic()
 emulator = sdk / 'emulator/emulator'
-qemu = ['-accel', 'tcg']
+qemu = ['-accel', 'tcg,thread=single', '-cpu', 'max']
 if platform.system() == 'Linux':
     # The SDK frontend rejects ARM64 guests on x86 hosts before invoking QEMU.
     # Exercise its bundled AArch64 engine directly; the Android guest stays ARM64.
@@ -31,15 +39,16 @@ if platform.system() == 'Linux':
 with (output / 'emulator.log').open('w') as log:
     process = subprocess.Popen([
         str(emulator), '-avd', 'officedroid-arm64',
-        '-accel', 'off', '-no-window', '-no-audio', '-no-snapshot',
-        '-no-boot-anim', '-show-kernel', '-gpu', 'swiftshader', '-cores', '2',
+        '-accel', 'off', '-no-window', '-no-audio', '-no-snapshot', '-wipe-data',
+        '-no-boot-anim', '-show-kernel', '-gpu', 'swiftshader', '-cores', '1',
         '-memory', '3072', '-camera-back', 'none', '-camera-front', 'none',
         # The ARM64 macOS frontend still adds -enable-hvf with -accel off.
         # Explicitly request the QEMU software accelerator after frontend options.
         '-port', '5554', '-verbose', '-qemu', *qemu],
         env=env, stdout=log, stderr=subprocess.STDOUT)
+    result['emulator_pid'] = process.pid
     try:
-        while time.monotonic() - start < 900:
+        while time.monotonic() - start < args.timeout_seconds:
             if process.poll() is not None:
                 raise RuntimeError(f'Emulator exited {process.returncode}; see emulator.log')
             try:
@@ -62,7 +71,7 @@ with (output / 'emulator.log').open('w') as log:
                 pass
             time.sleep(5)
         if not result['boot_completed']:
-            raise TimeoutError('ARM64 Android did not complete boot within 900 seconds')
+            raise TimeoutError(f'ARM64 Android did not complete boot within {args.timeout_seconds} seconds')
     except Exception as error:
         result['error'] = str(error)
         raise
@@ -78,10 +87,11 @@ with (output / 'emulator.log').open('w') as log:
                                    stderr=subprocess.STDOUT, timeout=20)
                 except subprocess.TimeoutExpired:
                     diagnostic.write('\nDiagnostic timed out after 20 seconds.\n')
-        process.terminate()
-        try:
-            process.wait(timeout=15)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
+        if not (args.keep_running and result['boot_completed']):
+            process.terminate()
+            try:
+                process.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
 print(json.dumps(result))

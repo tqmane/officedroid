@@ -30,7 +30,10 @@ using pinned bylaws LLVM-MinGW 20250920 and unchanged FEX at
 ARM64 registry defaults. Patch 0028 backports Wine's real `RtlWow64SuspendThread`
 forwarder required by FEX. Its upstream local-thread refinement remains a known
 limitation. The ELF side and graphical driver remain native Android/Bionic.
-ARM64EC compilation and execution are still being validated.
+ARM64EC compilation, packaging and APK/lint checks pass locally. A native-only
+cache initially retained import archives without ARM64EC symbols; the build now
+regenerates PE archives when enabled architectures/toolchains change. Android
+execution is still being validated.
 `scripts/package-wine.py` produces optional APK inputs, verifies each ELF's ABI,
 and keeps native executable code in Android-installed libraries. Wine PE/data
 files are checksummed ZIP assets. `WineRuntime` extracts those into private

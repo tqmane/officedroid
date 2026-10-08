@@ -492,6 +492,7 @@ public class WineActivity extends Activity
     {
         private WineWindow window;
         private boolean is_client;
+        private int renderedFrames;
 
         public WineView( Context c, WineWindow win, boolean client )
         {
@@ -514,6 +515,7 @@ public class WineActivity extends Activity
         @Override
         public void onSurfaceTextureAvailable( SurfaceTexture surftex, int width, int height )
         {
+            renderedFrames = 0;
             Log.i( LOGTAG, String.format( "onSurfaceTextureAvailable win %08x %dx%d %s",
                                           window.hwnd, width, height, is_client ? "client" : "whole" ));
             window.set_surface( surftex, is_client );
@@ -539,6 +541,10 @@ public class WineActivity extends Activity
         @Override
         public void onSurfaceTextureUpdated(SurfaceTexture surftex)
         {
+            if (++renderedFrames <= 3)
+                Log.i( LOGTAG, String.format( "texture updated hwnd=%08x frame=%d size=%dx%d measured=%dx%d hardware=%s",
+                                              window.hwnd, renderedFrames, getWidth(), getHeight(),
+                                              getMeasuredWidth(), getMeasuredHeight(), isHardwareAccelerated() ));
         }
 
         @TargetApi(24)

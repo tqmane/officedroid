@@ -1,0 +1,19 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: use the public RGBA format for CPU presentation
+
+The CPU bridge converts Wine BGRA pixels to the actual Android buffer format.
+Request the public RGBA_8888 format for TextureView composition instead of the
+legacy private BGRA format. Leave EGL's buffer format selection unchanged.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/device.c
++++ b/dlls/wineandroid.drv/device.c
+@@ -528,7 +528,7 @@
+     data->hwnd = hwnd;
+     data->opengl = opengl;
+     if (!opengl) data->api = NATIVE_WINDOW_API_CPU;
+-    data->buffer_format = PF_BGRA_8888;
++    data->buffer_format = opengl ? PF_BGRA_8888 : PF_RGBA_8888;
+     data_map[idx] = data;
+     for (i = 0; i < NB_CACHED_BUFFERS; i++) data->buffer_lru[i] = -1;
+     return data;

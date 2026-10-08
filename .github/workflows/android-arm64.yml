@@ -1,4 +1,4 @@
-name: ARM64 Android host inventory
+name: ARM64 Android execution
 on:
   workflow_dispatch:
   push:
@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/android-arm64.yml'
       - 'scripts/android-arm64-host-check.py'
+      - 'scripts/setup-arm64-emulator.sh'
+      - 'scripts/android-arm64-boot.py'
 permissions:
   contents: read
 jobs:
@@ -28,3 +30,22 @@ jobs:
           name: arm64-host-${{ matrix.runner }}
           include-hidden-files: true
           path: .build/arm64-host/
+  software-boot:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install pinned ARM64 Android emulator and image
+        run: bash scripts/setup-arm64-emulator.sh
+      - name: Boot ARM64 Android with software execution
+        run: python3 scripts/android-arm64-boot.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-software-boot-macos
+          include-hidden-files: true
+          path: .build/arm64-boot/

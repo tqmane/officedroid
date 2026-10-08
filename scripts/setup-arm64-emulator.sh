@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ $(uname -s) == Darwin && $(uname -m) == arm64 ]] || {
+    echo 'This execution setup requires an ARM64 macOS host.' >&2
+    exit 1
+}
+root=$(cd "$(dirname "$0")/.." && pwd)
+sdk="$root/.tools/android-arm64-sdk"
+downloads="$root/.tools/downloads"
+mkdir -p "$sdk" "$downloads"
+install_archive() {
+    local url=$1 hash=$2 destination=$3 archive="$downloads/${1##*/}"
+    if [[ ! -f $archive ]] || ! echo "$hash  $archive" | shasum -a 1 --check --status; then
+        curl --fail --location --retry 3 "$url" -o "$archive.part"
+        echo "$hash  $archive.part" | shasum -a 1 --check
+        mv "$archive.part" "$archive"
+    fi
+    mkdir -p "$destination"
+    unzip -qo "$archive" -d "$destination"
+}
+# Checksums are from Google's repository2-3.xml and sys-img/android/sys-img2-3.xml.
+install_archive https://dl.google.com/android/repository/emulator-darwin_aarch64-16428233.zip \
+    3af4fe44ce82b3d88ae5678a53735f27ad729c15 "$sdk"
+install_archive https://dl.google.com/android/repository/platform-tools_r37.0.1-darwin.zip \
+    6ae73f4de6452dc57e62ec02b68eed92a4c21661 "$sdk"
+install_archive https://dl.google.com/android/repository/commandlinetools-mac-13114758_latest.zip \
+    c3e06a1959762e89167d1cbaa988605f6f7c1d24 "$sdk/cmdline-tools/19.0-tmp"
+mkdir -p "$sdk/cmdline-tools/19.0"
+cp -R "$sdk/cmdline-tools/19.0-tmp/cmdline-tools/." "$sdk/cmdline-tools/19.0/"
+export ANDROID_HOME="$sdk" ANDROID_SDK_ROOT="$sdk"
+export ANDROID_USER_HOME="$root/.tools/android-arm64-user"
+export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+mkdir -p "$ANDROID_AVD_HOME"
+set +o pipefail
+yes 2>/dev/null | "$sdk/cmdline-tools/19.0/bin/sdkmanager" --sdk_root="$sdk" --licenses
+status=${PIPESTATUS[1]}
+set -o pipefail
+((status == 0)) || exit "$status"
+install_archive https://dl.google.com/android/repository/sys-img/android/arm64-v8a-36_r02.zip \
+    62ad6714df790f89c8a8ad32552ffe20bb16fe87 "$sdk/system-images/android-36/default"
+echo no | "$sdk/cmdline-tools/19.0/bin/avdmanager" create avd --force \
+    --name officedroid-arm64 --package 'system-images;android-36;default;arm64-v8a'
+cat >> "$ANDROID_AVD_HOME/officedroid-arm64.avd/config.ini" <<'EOF'
+hw.lcd.width=800
+hw.lcd.height=1280
+hw.lcd.density=160
+hw.keyboard=yes
+showDeviceFrame=no
+disk.dataPartition.size=4G
+EOF
+"$sdk/emulator/emulator" -version

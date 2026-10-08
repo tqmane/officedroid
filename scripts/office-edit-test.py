@@ -24,6 +24,24 @@ def normalized(text):
     return re.sub(r'[^A-Z0-9]', '', text.upper())
 
 
+def document_text(package, extension):
+    if extension == 'xlsx':
+        ns = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+        sheet = ET.fromstring(package.read('xl/worksheets/sheet1.xml'))
+        cell = sheet.find(".//s:c[@r='A1']", ns)
+        if cell is None:
+            return ''
+        if cell.get('t') == 'inlineStr':
+            return ''.join(node.text or '' for node in cell.findall('.//s:t', ns))
+        value = cell.findtext('s:v', default='', namespaces=ns)
+        if cell.get('t') == 's':
+            strings = ET.fromstring(package.read('xl/sharedStrings.xml'))
+            return ''.join(node.text or '' for node in strings[int(value)].findall('.//s:t', ns))
+        return value
+    name = 'word/document.xml' if extension == 'docx' else 'ppt/slides/slide1.xml'
+    return ''.join(ET.fromstring(package.read(name)).itertext())
+
+
 def screen(path):
     image = path.with_suffix('.png')
     image.write_bytes(adb('exec-out', 'screencap', '-p'))
@@ -83,9 +101,7 @@ for app, extension, initial in [('Word', 'docx', 'INITIALWORD'),
             data = adb('exec-out', 'run-as', 'org.officedroid', 'cat', destination)
             try:
                 with zipfile.ZipFile(io.BytesIO(data)) as package:
-                    text = ''.join(''.join(ET.fromstring(package.read(name)).itertext())
-                        for name in package.namelist()
-                        if name.endswith('.xml') and name.startswith(('word/', 'xl/', 'ppt/slides/')))
+                    text = document_text(package, extension)
                 if marker in text and initial not in text:
                     (directory / filename).write_bytes(data)
                     result['saved_content_verified'] = True

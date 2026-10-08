@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       office_install_timeout_seconds:
-        description: 'Official Office installation limit on software-emulated ARM64 Android'
+        description: 'Official Office installation limit on ARM64 Android'
         default: '7200'
         required: true
         type: string
@@ -38,7 +38,7 @@ jobs:
       matrix:
         abi: [arm64-v8a]
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -84,19 +84,39 @@ jobs:
           path: |
             .build/*source.tar.*
             app/build/outputs/apk/
-      - name: Install OCR dependency and prepare official Office media
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-arm64-build-logs
+          include-hidden-files: true
+          path: |
+            .build/logs/
+            .build/wine-*/config.log
+            app/build/reports/
+  android:
+    name: ARM64 Android runtime and Office
+    needs: wine
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 220
+    env:
+      ANDROID_SERIAL: 127.0.0.1:5555
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-arm64-v8a-build
+      - name: Install Android test and OCR dependencies
         run: |
-          if ! command -v tesseract >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng
-          fi
-          ./scripts/prepare-office.sh --media
-      - name: Verify native and translated Windows execution on ARM64 Android
-        timeout-minutes: 65
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends adb tesseract-ocr tesseract-ocr-eng
+      - name: Boot native ARM64 Android 16 on the standard runner
+        timeout-minutes: 20
         env:
-          OFFICEDROID_KEEP_EMULATOR: '1'
-          EMULATOR_BOOT_TIMEOUT: '1800'
-        run: ./scripts/emulator-test.sh -PwineRuntime=true
+          OFFICEDROID_KEEP_CONTAINER: '1'
+        run: bash scripts/android-arm64-container.sh
+      - name: Verify native and translated Windows execution on ARM64 Android
+        timeout-minutes: 40
+        run: bash scripts/android-device-test.sh
       - name: Upload ARM64 runtime evidence before Office installation
         if: always()
         uses: actions/upload-artifact@v4
@@ -104,37 +124,26 @@ jobs:
           name: wine-android-arm64-runtime-checks
           include-hidden-files: true
           path: |
-            .build/arm64-boot/
-            .build/emulator/gui/
-            .build/emulator/gui-wow64/
-            .build/emulator/launch/
-            app/build/outputs/androidTest-results/
+            .build/arm64-container/
+            .build/emulator/
+      - name: Prepare official Microsoft media without caching or uploading it
+        run: ./scripts/prepare-office.sh --media
       - name: Install official Microsoft 365 on ARM64 Android
         timeout-minutes: 130
         env:
           OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '7200' }}
-        run: |
-          source scripts/env.sh
-          export ANDROID_SERIAL=emulator-5554
-          python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS" --source media
+        run: python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS" --source media
       - name: Verify Word, Excel and PowerPoint editing, saving and cold reopening
         timeout-minutes: 30
-        run: |
-          source scripts/env.sh
-          export ANDROID_SERIAL=emulator-5554
-          python3 scripts/office-edit-test.py
-      - name: Collect Android diagnostics and stop the emulator
-        if: always() && env.OFFICEDROID_EMULATOR_PID != ''
-        run: ./scripts/emulator-stop.sh "$OFFICEDROID_EMULATOR_PID" "$OFFICEDROID_LOGCAT_PID"
+        run: python3 scripts/office-edit-test.py
+      - name: Collect Android diagnostics and stop the dedicated container
+        if: always() && env.OFFICEDROID_CONTAINER != ''
+        run: bash scripts/android-arm64-container.sh --stop
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: wine-${{ matrix.abi }}-results
+          name: wine-arm64-v8a-results
           include-hidden-files: true
           path: |
-            .build/logs/
-            .build/wine-*/config.log
-            .build/arm64-boot/
+            .build/arm64-container/
             .build/emulator/
-            app/build/reports/
-            app/build/outputs/androidTest-results/

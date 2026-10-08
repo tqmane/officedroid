@@ -6,9 +6,10 @@ The required target is **ARM64 Android on standard GitHub-hosted runners**.
 No Windows Word, Excel or PowerPoint editing screen has been verified. Prior
 x86_64 Android results below are historical and do not validate this target.
 
-- ARM64 Wine compilation passes (run 37762079154). The Wine workflow currently
-  is being connected to the ARM64 runtime and Office gates. A build success
-  alone does not mean Android or Office ran.
+- ARM64EC Wine, FEX and APK compilation pass in run 37766185147. The Wine
+  workflow now transfers that build to a standard ARM64 runner for Android
+  container tests, followed by separate Office installation and editing gates.
+  A build success alone does not mean Android or Office ran.
 - Standard Ubuntu ARM has no `/dev/kvm`; standard macOS ARM rejects actual
   Hypervisor VM creation (`0xfae9400f`), measured in run 37762282587.
 - macOS emulator 37.2.12 ignores `-accel off` for ARM64 and still enables HVF.
@@ -18,8 +19,20 @@ x86_64 Android results below are historical and do not validate this target.
 - Linux TCG run 37765669246 reaches ADB with `ro.product.cpu.abi=arm64-v8a`,
   but Zygote repeatedly crashes in ART ClassLinker/boot-image initialization.
   Boot never completes within 900 seconds. This is a system failure before APK
-  installation, not a passing Android test. The next run uses QEMU's `max` CPU
-  with one vCPU and a single TCG thread to test the emulator compatibility issue.
+  installation, not a passing Android test. QEMU's `max` CPU
+  with one vCPU and a single TCG thread also fails (run 37767924124). An official
+  Android 15 image is being compared to isolate the Android 16 ART failure.
+- Native Android 16 container run 37768714235 starts Binder and Android, but
+  SurfaceFlinger aborts during `drawHolePunchLayer` shader-cache warmup with
+  `output buffer not gpu writeable`. The next run disables the optional AOSP
+  `service.sf.prime_shader_cache` setting and still requires normal rendering.
+  The container reports SELinux disabled; this infrastructure cannot validate
+  stock-device SELinux enforcement. It is never part of the application runtime.
+- `scripts/android-device-test.sh` installs the built APK/test APK using native
+  ARM64 ADB, requires every declared instrumentation test to complete with code
+  zero (including all Wine probes), then runs the existing launcher and real
+  Notepad editing checks. This avoids needing x86 Android build tools on the
+  ARM64 execution host. No ARM64 device test has passed yet.
 - `scripts/build-fex.sh` builds pinned upstream FEX unchanged for i386 and AMD64
   Windows execution inside ARM64 Wine. Both PE DLL builds pass locally. Wine's
   ARM64EC build and APK packaging pass locally (2,122,816,967 expanded runtime

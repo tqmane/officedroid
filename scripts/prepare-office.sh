@@ -15,18 +15,23 @@ fetch() {
         mv "$file.part" "$file"
     fi
 }
-archive="$OFFICEDROID_TOOLS/downloads/7z2501-linux-x64.tar.xz"
-if [[ ! -x $OFFICEDROID_TOOLS/7zip/7zzs ]]; then
-    fetch https://www.7-zip.org/a/7z2501-linux-x64.tar.xz "$archive" \
-        4ca3b7c6f2f67866b92622818b58233dc70367be2f36b498eb0bdeaaa44b53f4
-    mkdir -p "$OFFICEDROID_TOOLS/7zip"
-    tar -xf "$archive" -C "$OFFICEDROID_TOOLS/7zip"
+case $(uname -m) in
+    x86_64) sevenzip_arch=x64; sevenzip_sha=4ca3b7c6f2f67866b92622818b58233dc70367be2f36b498eb0bdeaaa44b53f4 ;;
+    aarch64) sevenzip_arch=arm64; sevenzip_sha=39c5140f02ce4436599303c59a149f654cb1bbc47cdc105a942120d747ae040d ;;
+    *) echo 'Office media preparation requires Linux x86_64 or ARM64' >&2; exit 1 ;;
+esac
+sevenzip="$OFFICEDROID_TOOLS/7zip-$sevenzip_arch/7zzs"
+archive="$OFFICEDROID_TOOLS/downloads/7z2501-linux-$sevenzip_arch.tar.xz"
+if [[ ! -x $sevenzip ]]; then
+    fetch "https://www.7-zip.org/a/7z2501-linux-$sevenzip_arch.tar.xz" "$archive" "$sevenzip_sha"
+    mkdir -p "$(dirname "$sevenzip")"
+    tar -xf "$archive" -C "$(dirname "$sevenzip")"
 fi
 odt="$OFFICEDROID_TOOLS/downloads/office/odt-20326-20112.exe"
 fetch https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc032140/officedeploymenttool_20326-20112.exe "$odt" \
     fbb64358fd4168acd52ee4efe47ffd032b6231dfb415ae2dce61b0e58ba67f86
 # The bundled sample XML carries a Windows reparse stream; use our own config.
-"$OFFICEDROID_TOOLS/7zip/7zzs" x -tCab "$odt" setup.exe EULA -o"$OFFICEDROID_ROOT/.build/office/odt" -y
+"$sevenzip" x -tCab "$odt" setup.exe EULA -o"$OFFICEDROID_ROOT/.build/office/odt" -y
 test -s "$OFFICEDROID_ROOT/.build/office/odt/setup.exe"
 file "$OFFICEDROID_ROOT/.build/office/odt/setup.exe"
 # Click-to-Run imports modern MSVC exception handlers absent from Wine's CRT.
@@ -48,8 +53,8 @@ msxml="$OFFICEDROID_TOOLS/downloads/office/msxml6-KB2957482-enu-amd64.exe"
 fetch https://download.microsoft.com/download/2/7/7/277681BE-4048-4A58-ABBA-259C465B1699/msxml6-KB2957482-enu-amd64.exe "$msxml" \
     260cd870851ffc3c6d10b71691f134e20d8d03ac26073bb36951eacb7aa85897
 xml_stage="$OFFICEDROID_ROOT/.build/office/msxml6"
-"$OFFICEDROID_TOOLS/7zip/7zzs" e -tCab "$msxml" msxml6.msi -o"$xml_stage" -y
-"$OFFICEDROID_TOOLS/7zip/7zzs" e "$xml_stage/msxml6.msi" 'msxml6.dll.*' 'msxml6r.dll.*' -o"$xml_stage/extracted" -y
+"$sevenzip" e -tCab "$msxml" msxml6.msi -o"$xml_stage" -y
+"$sevenzip" e "$xml_stage/msxml6.msi" 'msxml6.dll.*' 'msxml6r.dll.*' -o"$xml_stage/extracted" -y
 for arch in x64 x86; do
     suffix=1ECC0691_D2EB_4A33_9CBF_5487E5CB17DB
     [[ $arch != x86 ]] || suffix=86F857F6_A743_463D_B2FE_98CB5F727E09
@@ -84,7 +89,7 @@ CAB_HASHES
         [[ $culture != en-us ]] || cab=s641033.cab
         name="stream.x64.$culture"
         # Each pinned Microsoft metadata CAB supplies the full DAT SHA-256.
-        "$OFFICEDROID_TOOLS/7zip/7zzs" e -so "$cache/$cab" "$name.hash" \
+        "$sevenzip" e -so "$cache/$cab" "$name.hash" \
             > "$OFFICEDROID_ROOT/.build/office/$name.hash"
         sha=$(python3 - "$OFFICEDROID_ROOT/.build/office/$name.hash" <<'READ_HASH'
 from pathlib import Path

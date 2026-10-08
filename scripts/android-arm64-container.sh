@@ -2,6 +2,11 @@
 # Evaluate native ARM64 Android test infrastructure on a standard Linux runner.
 # This container is CI infrastructure, never part of the application runtime.
 set -euo pipefail
+[[ $# == 0 || ( $# == 1 && $1 == --stop ) ]] || exit 2
+if [[ ${OFFICEDROID_KEEP_CONTAINER:-0} == 1 && -z ${GITHUB_ENV:-} ]]; then
+    echo 'Keeping the Android container requires GitHub Actions teardown steps.' >&2
+    exit 1
+fi
 [[ $(uname -s) == Linux && $(uname -m) == aarch64 ]]
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
@@ -10,16 +15,20 @@ mkdir -p "$output"
 uname -a > "$output/host.txt"
 image=redroid/redroid@sha256:e194edc99aa364358d1f8c214acb18b6d006c74fa0561f39259a20173ec30b66
 name=officedroid-arm64-boot
-if docker container inspect "$name" >/dev/null 2>&1; then
-    echo 'The dedicated container name is already in use; leave it untouched.' >&2
-    exit 1
-fi
 cleanup() {
     docker logs "$name" > "$output/container.log" 2>&1 || true
     timeout 20s adb -s 127.0.0.1:5555 logcat -b all -d > "$output/logcat.txt" 2>&1 || true
     sudo dmesg > "$output/dmesg.txt" 2>&1 || true
     docker rm -f "$name" >/dev/null 2>&1 || true
 }
+if [[ ${1:-} == --stop ]]; then
+    cleanup
+    exit
+fi
+if docker container inspect "$name" >/dev/null 2>&1; then
+    echo 'The dedicated container name is already in use; leave it untouched.' >&2
+    exit 1
+fi
 trap cleanup EXIT
 packages=()
 command -v adb >/dev/null || packages+=(adb)
@@ -82,3 +91,7 @@ finally:
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
 print(json.dumps(result))
 PY
+if [[ ${OFFICEDROID_KEEP_CONTAINER:-0} == 1 ]]; then
+    printf 'OFFICEDROID_CONTAINER=%s\n' "$name" >> "$GITHUB_ENV"
+    trap - EXIT
+fi

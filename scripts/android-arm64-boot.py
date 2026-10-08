@@ -22,7 +22,10 @@ with (output / 'emulator.log').open('w') as log:
         '-accel', 'off', '-no-window', '-no-audio', '-no-snapshot',
         '-no-boot-anim', '-gpu', 'swiftshader', '-cores', '2',
         '-memory', '3072', '-camera-back', 'none', '-camera-front', 'none',
-        '-port', '5554', '-verbose'], env=env, stdout=log, stderr=subprocess.STDOUT)
+        # The ARM64 macOS frontend still adds -enable-hvf with -accel off.
+        # Explicitly request the QEMU software accelerator after frontend options.
+        '-port', '5554', '-verbose', '-qemu', '-accel', 'tcg'],
+        env=env, stdout=log, stderr=subprocess.STDOUT)
     try:
         while time.monotonic() - start < 900:
             if process.poll() is not None:

@@ -11,7 +11,16 @@ output.mkdir(parents=True, exist_ok=True)
 
 
 def adb(*args):
-    return subprocess.check_output(['adb', *args], timeout=30)
+    for attempt in range(3):
+        try:
+            return subprocess.check_output(['adb', *args], timeout=30, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as error:
+            # Recover read-only captures after a transient emulator disconnect.
+            # Input events must never be replayed: that could duplicate an edit.
+            if args[0] != 'exec-out' or b'device offline' not in error.stderr or attempt == 2:
+                raise
+            print('Waiting for the emulator to reconnect before reading evidence', flush=True)
+            subprocess.run(['adb', 'wait-for-device'], check=True, timeout=30)
 
 
 def hierarchy():
@@ -54,12 +63,12 @@ def open_editor():
 
 
 def capture(name):
-    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log'],
-                         capture_output=True, timeout=20)
-    if log.returncode == 0 and log.stdout:
-        (output / (name + '-wine.log')).write_bytes(log.stdout)
-    elif log.stderr:
-        (output / (name + '-log-error.txt')).write_bytes(log.stderr)
+    try:
+        log = adb('exec-out', 'run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log')
+        if log:
+            (output / (name + '-wine.log')).write_bytes(log)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        (output / (name + '-log-error.txt')).write_text(str(error))
     screenshot = output / (name + '.png')
     screenshot.write_bytes(adb('exec-out', 'screencap', '-p'))
     text = subprocess.check_output(['tesseract', str(screenshot), 'stdout'], timeout=30).decode()

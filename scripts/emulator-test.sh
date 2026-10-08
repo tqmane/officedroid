@@ -57,9 +57,10 @@ adb shell input keyevent 82
 exec 8>.build/android-build.lock
 flock 8
 instrumentation_status=0
-gradle --no-daemon :app:connectedDebugAndroidTest "$@" || instrumentation_status=$?
-# Gradle's test runner uninstalls the target APK during cleanup.
-# Reinstall for the independent launcher/screenshot check.
+gradle --no-daemon :app:connectedDebugAndroidTest \
+    -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "$@" || instrumentation_status=$?
+# Keep the freshly tested prefix for GUI/Office, avoiding a second wineboot.
+# Reinstall defensively if instrumentation failed before installing the APK.
 timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
 launch_args=()
 for arg in "$@"; do

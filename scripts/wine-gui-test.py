@@ -83,6 +83,19 @@ def wait_for_text(name, token, count=1):
         time.sleep(1)
 
 
+def save_document():
+    adb('shell', 'input', 'keycombination', '113', '47')  # Ctrl+S
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        document = adb('exec-out', 'run-as', 'org.officedroid', 'cat', 'files/prefix/drive_c/gui-smoke.txt')
+        (output / 'gui-smoke.txt').write_bytes(document)
+        encoding = 'utf-16' if document.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
+        if document.decode(encoding).strip() == 'OFFICEDROIDGUI':
+            return
+        time.sleep(1)
+    raise RuntimeError('Android keyboard input and Ctrl+S did not persist the expected document')
+
+
 try:
     # A previous successful run must never satisfy a later failed input test.
     adb('shell', 'am', 'force-stop', 'org.officedroid')
@@ -101,6 +114,11 @@ try:
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
     adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
     wait_for_text('typed', 'OFFICEDROIDGUI')
+    save_document()
+    # A new edit control starts with an empty undo history. Otherwise classic
+    # Notepad coalesces the original typing, newline and paste into one undo.
+    open_editor()
+    wait_for_text('initial-reopened', 'OFFICEDROIDGUI')
     adb('shell', 'input', 'keycombination', '113', '29')  # Select text
     adb('shell', 'input', 'keycombination', '113', '31')  # Ctrl+C
     adb('shell', 'input', 'keyevent', '123')  # End
@@ -108,17 +126,7 @@ try:
     adb('shell', 'input', 'keycombination', '113', '50')  # Ctrl+V
     wait_for_text('pasted', 'OFFICEDROIDGUI', count=2)
     adb('shell', 'input', 'keycombination', '113', '54')  # Ctrl+Z
-    adb('shell', 'input', 'keycombination', '113', '47')  # Ctrl+S
-    deadline = time.monotonic() + 30
-    while time.monotonic() < deadline:
-        document = adb('exec-out', 'run-as', 'org.officedroid', 'cat', 'files/prefix/drive_c/gui-smoke.txt')
-        (output / 'gui-smoke.txt').write_bytes(document)
-        encoding = 'utf-16' if document.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
-        if document.decode(encoding).strip() == 'OFFICEDROIDGUI':
-            break
-        time.sleep(1)
-    else:
-        raise RuntimeError('Android keyboard input and Ctrl+S did not persist the document')
+    save_document()
     wait_for_text('edited', 'OFFICEDROIDGUI')
     open_editor()
     wait_for_text('reopened', 'OFFICEDROIDGUI')

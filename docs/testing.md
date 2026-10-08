@@ -92,6 +92,15 @@ poll rendered content for up to 30 seconds instead of assuming a one-second
 rendering delay, and GUI/Office OCR uses sparse-text segmentation. Copy/paste,
 save/reopen and Office still require a passing run.
 
+Run [37713115669](https://github.com/tqmane/officedroid/actions/runs/37713115669)
+at `3291470` passes visible typing and copy/paste. Its undo/save assertion fails:
+classic Notepad coalesces all contiguous insertions into one undo group, so
+Ctrl+Z removes the original typing as well as the paste and Ctrl+S saves an empty
+file. The test now saves and cold-reopens the initial text before exercising
+paste/undo, giving that operation an independent undo history. Instrumentation
+also keeps its installed APK/prefix for the subsequent GUI check; the AVD is
+still wiped at the start, and each GUI test removes its own previous document.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

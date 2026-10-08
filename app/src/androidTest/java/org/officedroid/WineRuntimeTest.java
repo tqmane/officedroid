@@ -27,6 +27,25 @@ public class WineRuntimeTest {
             WineRuntime.stop(context);
         }
     }
+    private void checkNetworkEnumeration(String executable) throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
+        File runtime = WineRuntime.prepare(context);
+        try {
+            String output = WineRuntime.run(context, 60, new File(runtime, executable).getAbsolutePath());
+            assertTrue("Network enumeration must return real interfaces and addresses: " + output,
+                    output.contains("NETWORK_ENUM_OK"));
+        } finally {
+            WineRuntime.stop(context);
+        }
+    }
+    @Test public void nativeWindowsNetworkEnumeration() throws Exception {
+        checkNetworkEnumeration("network-probe.exe");
+    }
+    @Test public void wow64WindowsNetworkEnumeration() throws Exception {
+        assumeTrue(android.os.Build.SUPPORTED_ABIS[0].equals("x86_64"));
+        checkNetworkEnumeration("network-probe-wow64.exe");
+    }
     @Test public void wineBootAndWindowsCommand() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));

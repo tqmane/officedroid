@@ -54,6 +54,14 @@ for abi in abis:
     probe = root / f'.build/https-probe-{abi}.exe'
     subprocess.run([str(tool_dir / f'llvm-mingw/bin/{compiler}-w64-mingw32-clang'),
                     str(root / 'runtime/win32/https-probe.c'), '-O2', '-lwinhttp', '-o', str(probe)], check=True)
+    network_probes = []
+    for machine, name in [(compiler, 'network-probe.exe')] + (
+            [('i686', 'network-probe-wow64.exe')] if abi == 'x86_64' else []):
+        path = root / f'.build/{abi}-{name}'
+        subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
+                        str(root / 'runtime/win32/network-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',
+                        '-liphlpapi', '-o', str(path)], check=True)
+        network_probes.append((path, name))
     native = root / '.build/wine-jniLibs' / abi
     native.mkdir(parents=True, exist_ok=True)
     mapping = {}
@@ -62,6 +70,7 @@ for abi in abis:
     with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=1) as output:
         files = [(p, p.relative_to(stage).as_posix()) for p in sorted(stage.rglob('*')) if p.is_file()]
         files.append((probe, 'https-probe.exe'))
+        files.extend(network_probes)
         for dependency in sorted((root / f'.build/deps-{abi}/lib').glob('*.so*')):
             if dependency.is_file():
                 files.append((dependency, f'{abi}/lib/{dependency.name}'))

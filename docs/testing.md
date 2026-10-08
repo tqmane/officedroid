@@ -166,6 +166,32 @@ through a shell positional argument (verified with an equivalent host path).
 File and synchronization traces are enabled in the installer batch file, limiting
 their scope to ODT and its children. Office installation/editing remains unverified.
 
+Diagnostic run [37729508584](https://github.com/tqmane/officedroid/actions/runs/37729508584)
+at `224c271` again passes the runtime and both Notepad gates. Its file trace
+narrows the installer wait to `IOCTL_NSIPROXY_WINE_ENUMERATE_ALL` on `\\.\Nsi`:
+both a background thread and the main setup thread enter the call without
+returning. Configuration HTTPS requests still complete. WineDbg now launches,
+but `bt all` overflows its stack while formatting an unrelated Explorer frame,
+before reaching setup. Diagnostics therefore capture setup/device threads
+individually and enable NSI driver traces from Wine startup.
+
+The separate standard run [37729442149](https://github.com/tqmane/officedroid/actions/runs/37729442149)
+fails because cold-boot Quickstep has no focused window when the test injects
+MENU. The script now uses `wm dismiss-keyguard` without injecting input;
+[37731431954](https://github.com/tqmane/officedroid/actions/runs/37731431954)
+at `464b856` passes the standard build, lint, host and Android tests.
+
+Run [37731430662](https://github.com/tqmane/officedroid/actions/runs/37731430662)
+at `464b856` confirms `setup.exe` is blocked in `GetAdaptersInfo`, while the
+NSI request thread is inside its Unix enumeration call. Startup's first
+enumeration returns, but the next never does. Android's Bionic `if_nameindex`
+uses restricted `RTM_GETLINK`; Wine dereferences its NULL result under
+`if_list_lock`, and its Unix-call fault recovery skips the mutex unlock.
+Patch 23 uses Bionic's application-compatible `getifaddrs` path on Android and
+checks `if_nameindex` failure elsewhere. Android verification is pending.
+New native/WoW64 instrumented probes require `GetIfTable2`, `GetAdaptersInfo`
+and `GetAdaptersAddresses` to return real interfaces and unicast addresses.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

@@ -1,0 +1,70 @@
+From: OfficeDroid contributors
+Subject: [PATCH] nsiproxy: enumerate Android interfaces through getifaddrs
+
+Bionic if_nameindex sends RTM_GETLINK, which Android denies to untrusted
+applications. Wine dereferences its NULL result while holding if_list_lock.
+The Unix-call fault returns an error without releasing that mutex, so the
+next NSI enumeration blocks indefinitely. ODT's GetAdaptersInfo then waits
+behind it; Android traces show one completed startup enumeration followed by
+a stuck second enumeration in the same nsiproxy request thread.
+
+On Android, use Bionic getifaddrs, which uses the permitted RTM_GETADDR path
+for application UIDs, and resolve indices with the supported ioctl-backed
+if_nametoindex. Keep real interface names/addresses and deduplicate entries
+through the existing table. Also handle if_nameindex failure elsewhere.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/nsiproxy.sys/ndis.c
++++ b/dlls/nsiproxy.sys/ndis.c
+@@ -67,6 +67,10 @@
+ #endif
+ 
+ #include <pthread.h>
++#ifdef __ANDROID__
++#include <ifaddrs.h>
++#endif
++
+ 
+ #include "ntstatus.h"
+ #define WIN32_NO_STATUS
+@@ -309,9 +313,30 @@
+ 
+ static unsigned int update_if_table( void )
+ {
+-    struct if_nameindex *indices = if_nameindex(), *entry;
+     unsigned int append_count = 0;
+ 
++#ifdef __ANDROID__
++    struct ifaddrs *addrs, *addr;
++    unsigned int index;
++
++    /* Bionic if_nameindex uses RTM_GETLINK, denied to application UIDs.
++     * getifaddrs instead uses RTM_GETADDR and ioctl fallbacks on Android. */
++    if (getifaddrs( &addrs ))
++    {
++        WARN( "getifaddrs failed\n" );
++        return 0;
++    }
++    for (addr = addrs; addr; addr = addr->ifa_next)
++    {
++        if (!addr->ifa_name || !(index = if_nametoindex( addr->ifa_name ))) continue;
++        if (!find_entry_from_index( index ) && add_entry( index, addr->ifa_name ))
++            ++append_count;
++    }
++    freeifaddrs( addrs );
++#else
++    struct if_nameindex *indices = if_nameindex(), *entry;
++
++    if (!indices) return 0;
+     for (entry = indices; entry->if_index; entry++)
+     {
+         if (!find_entry_from_index( entry->if_index ) && add_entry( entry->if_index, entry->if_name ))
+@@ -319,6 +346,8 @@
+     }
+ 
+     if_freenameindex( indices );
++#endif
++    TRACE( "added %u network interfaces\n", append_count );
+     return append_count;
+ }
+ 

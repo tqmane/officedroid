@@ -4,50 +4,54 @@ Research and implementation of a shared, app-managed Wine runtime for Windows
 Word, Excel and PowerPoint on Android tablets. No Termux, PRoot, root or external
 Linux distribution is part of the application architecture.
 
-**Development prototype, not a working Office product.** The APK currently
-provides separate launchers and a real native-executable diagnostic. An optional
-APK packages Wine 11.0 and FreeType built for Android. Android 16 x86_64 tests
-verify Wine initialization, 32/64-bit Windows commands, validated HTTPS and a
-persisted shared prefix. Both 32-bit and 64-bit Win32 Notepad display keyboard input,
-copy/paste, undo changes, save and show the saved document after a cold
-restart. Microsoft Office installation, editing, authentication, document
-write-back and a shared graphical session lifecycle are not yet working.
-Launcher entries alone do not demonstrate Office compatibility.
+**Development prototype; no Office editing screen has been verified.** The active
+target is ARM64 Android on standard GitHub-hosted runners. Wine 11.0 with ARM64EC,
+FEX, TLS and Kerberos builds and packages locally; host tests and Android lint pass.
+The ARM64 Android emulator currently reaches ADB but crashes in ART during boot.
+CI also evaluates native ARM64 Android container infrastructure and records its
+sandbox differences. See [current test evidence](docs/testing.md).
+
+Historical Android 16 x86_64 runs verify Wine initialization, HTTPS, network/RPC
+providers and native/WoW64 Notepad editing, saving and cold reopening. Official
+Office installation still fails during App-V XML manifest merging. A pinned
+Microsoft MSXML6 experiment is prepared but has not run on ARM64. Authentication,
+Office editing, SAF write-back and concurrent graphical lifecycle remain unfinished.
 
 ## Build and test
 
-Linux x86_64 host; Android targets are `x86_64` and `arm64-v8a`.
+Linux x86_64 cross-build host; the active Android execution target is `arm64-v8a`.
 Use an existing checkout. Cloud tasks are already isolated; no worktree is needed.
 
 ```sh
 ./scripts/setup.sh --wine
 ./scripts/build.sh
-./scripts/build-wine.sh x86_64
 ./scripts/build-wine.sh arm64-v8a
-python3 scripts/package-wine.py x86_64 arm64-v8a
+python3 scripts/package-wine.py arm64-v8a
 ./scripts/build.sh -PwineRuntime=true
 ```
 
 Setup detects missing JDK and Wine build tools. SDK 36, NDK r28c, CMake/Ninja,
-Gradle 8.13 and LLVM-MinGW are installed locally with verified downloads. Ubuntu
+Gradle 8.13 and pinned LLVM-MinGW/ARM64EC toolchains are installed locally with verified downloads. Ubuntu
 uses APT when required; Debian read-only cloud images use signed APT downloads
 and local extraction. Sources, downloads and outputs are ignored by Git.
-Allow roughly 25 GB for tools, both Wine builds and an emulator image.
+Allow roughly 50 GB for tools, runtime builds, the emulator and Office validation.
 The default APK excludes Wine. `-PwineRuntime=true` includes the locally packaged
 ABIs; Windows PE/data assets go into private storage, while Unix executable code
 is installed by Android's package manager. No Microsoft binaries are included.
 
 ```sh
-./scripts/setup.sh --emulator
 ./scripts/emulator-test.sh
 # After packaging Wine and rebuilding the APK:
 ./scripts/emulator-test.sh -PwineRuntime=true
 ```
 
-The emulator uses Android 16 and a 2560×1600, 240 dpi landscape display. KVM is
-preferred; the script uses software acceleration and a bounded boot timeout when
-unavailable. CI builds both Android ABIs, tests host processes on x86_64 and ARM64
-Linux, and runs Android instrumentation. Results and APKs are uploaded as artifacts.
+The emulator script installs pinned Android 16 ARM64 components and uses a
+2560×1600 landscape test display. Standard ARM runners lack usable VM acceleration;
+the current emulator experiment uses QEMU TCG on a Linux build host. Boot failures
+remain failures, and Office tests require all runtime checks first. Actions retains
+APK/source artifacts and separate boot, runtime, installer and editing evidence.
+The native Android container experiment is separate test infrastructure; it is not
+an application dependency and does not establish stock Android sandbox compatibility.
 
 Minimum Android is 10 / API 29; compile/target SDK is 36. Older-device behavior and
 ARM64 Android runtime behavior must be tested separately from cross-compilation.

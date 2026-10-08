@@ -28,7 +28,8 @@ Reviewed Linux references:
 
 `scripts/prepare-office.sh` pins Microsoft's ODT 16.0.20326.20112 and its
 SHA-256, and extracts it with pinned 7-Zip 25.01. The ODT executable is i386
-even when installing 64-bit Office, so the x86_64 runtime includes WoW64 PE DLLs.
+even when installing 64-bit Office. The ARM64 runtime therefore includes i386
+Wine modules and a real FEX translator, as well as ARM64EC/AMD64 support.
 The script also fetches pinned Microsoft Visual C++ 14.44.35211 x64 and x86
 redistributables from Microsoft's versioned download URLs. The installation
 batch runs both official installers before ODT, records their exit codes and
@@ -49,8 +50,7 @@ metadata CABs from Microsoft CDN and verifies the 3.3 GB of stream data against
 SHA-256 values inside those CABs. Host-side symlinks avoid duplicating the cache.
 Initial preparation and repeat runs pass locally. This command only prepares
 media; it does not install or activate Office. To test that source, dispatch
-Wine Android with `office_source=media`, or use `office-install-test.py --source
-media` on an already running test emulator. The test streams the files into
+ARM64 Wine and Office, or use `office-install-test.py --source media` on an already running test emulator. The test streams the files into
 the shared prefix, verifies their device-side hashes, and supplies ODT's
 `SourcePath` with CDN fallback disabled. Run `37752614665` verifies every staged
 file on Android and advances through extraction in minutes. It exits 17002 at
@@ -62,8 +62,17 @@ Read-only inspection of Microsoft's `AppVIsvSubsystemController.dll` shows that
 it registers Kerberos (service 16), then Negotiate and NTLM. Wine's previous
 build omitted Kerberos/GSSAPI. `build-kerberos.sh` now supplies the real MIT
 libraries for Android; both library builds and the local x86_64 Wine/APK build
-pass. Native/WoW64 registration probes and Office installation must still pass
-on Android before this dependency change can be called a runtime fix.
+pass. Run 37757895102 passes all eleven historical x86_64 Android runtime tests,
+including native/WoW64 registration, and confirms App-V registration of services
+16, 9 and 10. Installation then fails at XML manifest merging: `removeChild failed`,
+0x80070057, ODT exit 17002. No account/license prompt or editor was reached.
+
+The next experiment uses official Microsoft MSXML6 6.20.2017.0, from pinned
+KB2957482. `prepare-office.sh` extracts both architectures; the install test
+streams each DLL into the correct system32/syswow64 prefix directory and verifies
+its on-device SHA-256. Wine prefers native MSXML6 with builtin fallback. This has
+passed host download/extraction and APK/lint checks, but Android behavior remains
+untested. These Microsoft DLLs stay outside Git, APKs and uploaded artifacts.
 The workflow defaults to `media`: the CDN route spent 30 minutes on thousands of
 small range requests in run `37748550796`. Never package or upload this directory or its
 linked Microsoft files.

@@ -1,20 +1,28 @@
-# ARM64 evaluation
+# ARM64 execution
 
-The same NDK toolchain builds the Android-native probe for `arm64-v8a` and
-`x86_64`. A separate `ubuntu-24.04-arm` CI job runs the C process/filesystem/memory
-checks natively. Neither is evidence that x86 Office can run on ARM64 Android.
+The active target is ARM64 Android using standard GitHub-hosted runners. Cross-builds
+run on Linux x86_64 because the official Android NDK host toolchain requires it.
+The application runs native AArch64/Bionic Wine and the Android JNI graphical driver.
 
-| Candidate | Observed upstream model | Remaining Android work |
-| --- | --- | --- |
-| Native Wine aarch64 | Wine supports aarch64 PE builds | Windows ARM64/ARM64EC application availability and dependencies |
-| ARM64EC + FEX | [Hangover](https://github.com/AndreRH/hangover) describes native Unix Wine plus PE emulator DLLs | bionic build, JNI driver and Android mapping restrictions |
-| FEX Linux | [FEX](https://github.com/FEX-Emu/FEX) documents ARM64 Linux and x86 rootfs | Linux FEX is not automatically a bionic Android library |
-| Box64 | [Box64](https://github.com/ptitSeb/box64) runs x86_64 Linux code; Hangover also describes a PE integration | Distinguish whole-Linux emulation from PE-only integration |
-| Box86 | [Box86](https://github.com/ptitSeb/box86) targets 32-bit x86 on ARM | Low priority because 32-bit ABIs are outside the initial scope |
-| Winlator | [Winlator](https://github.com/brunodev85/winlator) packages Wine/Box64 and credits glibc patches | Reference for managed native/glibc execution, not proof our Wine Android path works |
+`scripts/build-wine.sh arm64-v8a` enables ARM64EC, aarch64 and i386 PE modules.
+`scripts/build-fex.sh` builds unchanged FEX at
+`fa556167d5a64ec7adb5503c2aa15b169c292cac` with pinned submodules and bylaws
+LLVM-MinGW 20250920. FEX's PE DLLs translate Windows i386 and AMD64 code inside
+Wine; no Linux rootfs, Termux or PRoot is part of the app. Wine's registry selects
+both translators. The native and x86/x64 network/RPC probes are mandatory on ARM64.
 
-The native aarch64 Wine cross-build and APK packaging pass locally and in CI.
-ARM64 Android execution remains untested; the ARM64 Linux host probe is a separate
-check of portable process/filesystem logic. No x86 translation or ARM64EC
-Office compatibility is enabled implicitly. Add a translator only after the
-native ABI experiment and its targeted tests identify the actual requirement.
+Both FEX DLLs, ARM64EC Wine, APK packaging, host checks and lint pass locally.
+Cached native-only Wine import archives initially lacked ARM64EC entries. The build
+now regenerates PE archives when architectures/toolchain identity changes. Android
+runtime and Office execution have not yet passed.
+
+Standard Ubuntu ARM has no KVM; standard ARM macOS rejects Hypervisor VM creation.
+The official ARM Mac emulator still enters HVF even with TCG requested. The Linux
+SDK's AArch64 engine runs ARM64 Android with TCG far enough for ADB, but Android 16
+Zygote repeatedly crashes in ART boot-image initialization. CPU-model and single-thread
+execution experiments are tracked in `android-arm64.yml`. The same workflow evaluates
+Android 16 redroid on the standard native ARM runner using Binder and records SELinux
+state. A container boot does not prove stock-device sandbox behavior or Office editing.
+
+See [testing.md](testing.md) for actual runs and failures. Linux ARM host tests and
+compilation are not substitutes for the three actual Android Office editing gates.

@@ -18,11 +18,16 @@ runtime and Office execution have not yet passed.
 
 Standard Ubuntu ARM has no KVM; standard ARM macOS rejects Hypervisor VM creation.
 The official ARM Mac emulator still enters HVF even with TCG requested. The Linux
-SDK's AArch64 engine runs ARM64 Android with TCG far enough for ADB, but Android 16
-Zygote repeatedly crashes in ART boot-image initialization. CPU-model and single-thread
-execution experiments are tracked in `android-arm64.yml`. The same workflow evaluates
-Android 16 redroid on the standard native ARM runner using Binder and records SELinux
-state. A container boot does not prove stock-device sandbox behavior or Office editing.
+SDK's AArch64 engine reaches ADB but Android 16 Zygote repeatedly crashes in ART,
+even with CPU max and one TCG thread. Android 15 TCG also fails, with lmkd SIGSEGVs.
 
-See [testing.md](testing.md) for actual runs and failures. Linux ARM host tests and
-compilation are not substitutes for the three actual Android Office editing gates.
+Native Android 15 ARM64 container boot **passes** on the standard ARM runner in
+run 37771594555: `arm64-v8a`, API 35, boot completed in 15.6 seconds and a visible
+home screen. Android 16 container boot fails in graphics/shared-memory startup.
+The Wine workflow therefore tests its cross-built APK on the Android 15 container.
+This records SELinux **Disabled** and cannot validate stock-device enforcement;
+the container is CI infrastructure only, not part of the Android application.
+Wine processes and Office editing have not passed on ARM64 yet.
+
+See [testing.md](testing.md) for actual runs and failures. Linux ARM host tests,
+compilation and Android boot are not substitutes for the three Office editing gates.

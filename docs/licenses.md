@@ -29,6 +29,7 @@ under its Apache-2.0 source notice.
 | [Hangover](https://github.com/AndreRH/hangover) | LGPL-2.1 repository, component notices still apply; research only |
 | [Winlator](https://github.com/brunodev85/winlator) | LGPL-2.1 repository and separately licensed bundled components; research only |
 | [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw) | Build tool; LLVM and MinGW runtime notices are included for code linked into PE binaries |
+| [redroid / AOSP](https://github.com/remote-android/redroid-doc) | Pinned Android container used only as CI infrastructure; AOSP/component-specific notices (gralloc source is Apache-2.0). No container filesystem or binaries are redistributed in APKs/artifacts; not an app dependency |
 | Android SDK/NDK | Google's SDK terms and bundled open-source notices; downloaded by setup |
 
 Portions of this software are copyright © 1996–2024 The FreeType Project

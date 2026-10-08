@@ -20,14 +20,20 @@ x86_64 Android results below are historical and do not validate this target.
   but Zygote repeatedly crashes in ART ClassLinker/boot-image initialization.
   Boot never completes within 900 seconds. This is a system failure before APK
   installation, not a passing Android test. QEMU's `max` CPU
-  with one vCPU and a single TCG thread also fails (run 37767924124). An official
-  Android 15 image is being compared to isolate the Android 16 ART failure.
+  with one vCPU and a single TCG thread also fails (run 37767924124). Official
+  Android 15 also fails to boot in run 37770088694, with lmkd SIGSEGVs.
 - Native Android 16 container run 37768714235 starts Binder and Android, but
   SurfaceFlinger aborts during `drawHolePunchLayer` shader-cache warmup with
-  `output buffer not gpu writeable`. The next run disables the optional AOSP
-  `service.sf.prime_shader_cache` setting and still requires normal rendering.
+  `output buffer not gpu writeable`. Run 37770890494 successfully
+  disables optional AOSP `service.sf.prime_shader_cache`, but system_server then
+  crashes with `Failed to create ashmem` in ApplicationSharedMemory. Android 16
+  still does not boot on this host; disabling warmup is insufficient.
   The container reports SELinux disabled; this infrastructure cannot validate
   stock-device SELinux enforcement. It is never part of the application runtime.
+- Native Android 15 ARM64 container boot **passes** in run 37771594555 at
+  32d6808. Actual ABI is `arm64-v8a`, SDK is 35, boot takes 15.6 seconds and the
+  captured screenshot shows the Android home screen. SELinux is `Disabled`.
+  This is Android boot evidence only; ARM64 Wine and Office remain unverified.
 - `scripts/android-device-test.sh` installs the built APK/test APK using native
   ARM64 ADB, requires every declared instrumentation test to complete with code
   zero (including all Wine probes), then runs the existing launcher and real

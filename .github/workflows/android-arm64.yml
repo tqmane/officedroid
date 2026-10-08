@@ -1,14 +1,6 @@
 name: ARM64 Android execution
 on:
   workflow_dispatch:
-  push:
-    branches: [feature/native-build-foundation]
-    paths:
-      - '.github/workflows/android-arm64.yml'
-      - 'scripts/android-arm64-host-check.py'
-      - 'scripts/setup-arm64-emulator.sh'
-      - 'scripts/android-arm64-boot.py'
-      - 'scripts/android-arm64-container.sh'
 permissions:
   contents: read
 jobs:

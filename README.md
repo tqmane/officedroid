@@ -6,10 +6,10 @@ Linux distribution is part of the application architecture.
 
 **Development prototype; no Office editing screen has been verified.** The active
 target is ARM64 Android on standard GitHub-hosted runners. Wine 11.0 with ARM64EC,
-FEX, TLS and Kerberos builds and packages locally; host tests and Android lint pass.
-The ARM64 Android emulator currently reaches ADB but crashes in ART during boot.
-CI also evaluates native ARM64 Android container infrastructure and records its
-sandbox differences. See [current test evidence](docs/testing.md).
+FEX, TLS and Kerberos builds and packages locally and in Actions; host tests and
+Android lint pass. A native Android 15 ARM64 container boots and displays its home
+screen on the standard ARM64 runner. Application execution is being tested there.
+The official software emulator fails during system startup. See [current test evidence](docs/testing.md).
 
 Historical Android 16 x86_64 runs verify Wine initialization, HTTPS, network/RPC
 providers and native/WoW64 Notepad editing, saving and cold reopening. Official
@@ -45,13 +45,18 @@ is installed by Android's package manager. No Microsoft binaries are included.
 ./scripts/emulator-test.sh -PwineRuntime=true
 ```
 
-The emulator script installs pinned Android 16 ARM64 components and uses a
-2560×1600 landscape test display. Standard ARM runners lack usable VM acceleration;
-the current emulator experiment uses QEMU TCG on a Linux build host. Boot failures
-remain failures, and Office tests require all runtime checks first. Actions retains
-APK/source artifacts and separate boot, runtime, installer and editing evidence.
-The native Android container experiment is separate test infrastructure; it is not
-an application dependency and does not establish stock Android sandbox compatibility.
+The Wine Actions workflow transfers the cross-built APK/test APK to a standard
+`ubuntu-24.04-arm` runner. It boots a pinned Android 15 ARM64 container and runs
+`scripts/android-device-test.sh`, followed by separate Office installation and
+editing checks. All runtime checks must pass first. Container SELinux is disabled;
+this CI infrastructure is not an application dependency and cannot establish stock
+Android sandbox compatibility. Actual ABI, SDK, image identity and SELinux state
+are recorded with screenshots and failure logs.
+
+The emulator script remains an Android 16 ARM64 software-execution diagnostic.
+Standard ARM runners lack usable VM acceleration; the Linux QEMU TCG experiment
+fails during Android system startup. The separate `android-arm64.yml` diagnostic
+workflow compares official images and Android 15/16 container boot.
 
 Minimum Android is 10 / API 29; compile/target SDK is 36. Older-device behavior and
 ARM64 Android runtime behavior must be tested separately from cross-compilation.

@@ -200,8 +200,19 @@ WoW64 `GetIfTable2` both return success and four interfaces. The next API,
 and 64-bit GUI editing pass. The failed gate prevents this run from reaching
 the Office installer. Patch 24 retrieves actual IPv4/IPv6 routes through a
 bounded `RTM_GETROUTE` request, without a multicast bind or elevated privileges.
-The probe also requires real gateway entries. This route fix awaits Android
-validation. Failures printed by WineDbg while attaching to WoW64 processes
+The probe also requires real gateway entries. Run
+[37734923890](https://github.com/tqmane/officedroid/actions/runs/37734923890)
+at `441aece` verifies `GetAdaptersInfo` succeeds for native and WoW64 callers.
+`GetAdaptersAddresses` then returns `0xc0000005`: Android has no glibc `_res`
+state, so Wine builds an empty DNS Unix library and calls its uninitialized
+dispatch table. The failed regression gate prevents Office installation.
+Patch 25 implements the DNS Unix calls with Bionic queries and the active
+network's actual LinkProperties, supplied by the Android launcher. It also
+initializes the DNS buffer size in iphlpapi. Probes require DNS server entries
+and a successful `DnsQuery_A` for Microsoft's configuration host; Android
+validation of this fix is pending.
+
+Failures printed by WineDbg while attaching to WoW64 processes
 occur after installer timeout and do not establish a preceding Office crash.
 
 The standard run at `f7f0d7f` reveals a separate Android System UI startup ANR,
@@ -210,6 +221,9 @@ The emulator now requires a stable, visible AOSP home screen before installing
 the app. A failed system boot retains its XML, screenshot and logcat, then gets
 one reboot using its initialized system data; a second failure fails CI.
 Application tests and input events are never retried by this startup check.
+Standard run [37734925731](https://github.com/tqmane/officedroid/actions/runs/37734925731)
+at `441aece` passes, with a stable home screen on the first boot. The reboot
+recovery branch has not yet been exercised by CI.
 
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;

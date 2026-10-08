@@ -1,6 +1,8 @@
 package org.officedroid;
 
 import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.LinkProperties;
 import android.os.Build;
 import android.system.Os;
 import java.io.*;
@@ -141,6 +143,15 @@ public final class WineRuntime {
         env.put("LD_LIBRARY_PATH", nativeDirectory + ":" + dlls + "/" + machine + "-unix:"
                 + new File(directory, abi + "/lib").getAbsolutePath());
         env.put("LANG", "en_US.UTF-8");
+        ConnectivityManager connectivity = context.getSystemService(ConnectivityManager.class);
+        android.net.Network network = connectivity.getActiveNetwork();
+        LinkProperties link = network == null ? null : connectivity.getLinkProperties(network);
+        ArrayList<String> dns = new ArrayList<>();
+        if (link != null) {
+            for (java.net.InetAddress address : link.getDnsServers()) dns.add(address.getHostAddress());
+        }
+        env.put("OFFICEDROID_DNS_SERVERS", String.join(" ", dns));
+        env.put("OFFICEDROID_DNS_DOMAINS", link != null && link.getDomains() != null ? link.getDomains() : "");
         env.put("WINEDEBUG", "err+all,warn+winhttp,warn+secur32");
         env.put("OFFICEDROID_DEBUG_INIT", "1");
         // Do not prompt to download optional Mono/Gecko during a bounded smoke test.

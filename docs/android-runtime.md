@@ -21,6 +21,8 @@ namespace and background restrictions. A Wine integration needs to handle:
 6. Child lifetime, foreground/background transitions and user-visible service
    notification when needed. A process spawn is not a lifecycle manager.
 
-Only INTERNET is declared for future Wine networking. There is no external-storage,
+INTERNET enables Wine networking; ACCESS_NETWORK_STATE reads the active network's
+DNS servers and search domains through Android LinkProperties. Wine's DNS queries
+use Bionic's resolver, preserving Android's network selection. There is no external-storage,
 microphone, root or system-modification requirement. Document provider access must
 use per-URI grants. No access to a supplied URI is currently attempted.

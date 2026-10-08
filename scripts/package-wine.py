@@ -60,7 +60,7 @@ for abi in abis:
         path = root / f'.build/{abi}-{name}'
         subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
                         str(root / 'runtime/win32/network-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',
-                        '-liphlpapi', '-o', str(path)], check=True)
+                        '-liphlpapi', '-ldnsapi', '-o', str(path)], check=True)
         network_probes.append((path, name))
     native = root / '.build/wine-jniLibs' / abi
     native.mkdir(parents=True, exist_ok=True)

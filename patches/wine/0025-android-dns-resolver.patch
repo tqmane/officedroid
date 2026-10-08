@@ -1,0 +1,148 @@
+--- a/dlls/dnsapi/libresolv.c
++++ b/dlls/dnsapi/libresolv.c
+@@ -24,7 +24,7 @@
+ 
+ #include "config.h"
+ 
+-#ifdef HAVE_RESOLV
++#if defined(HAVE_RESOLV) || defined(__ANDROID__)
+ #include <stdarg.h>
+ #include <string.h>
+ #include <stdio.h>
+@@ -58,6 +58,117 @@
+ #include "dnsapi.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(dnsapi);
++
++#ifdef __ANDROID__
++/* Bionic exposes DNS queries, but not glibc's private _res state. The Android
++ * launcher supplies LinkProperties from the active network for enumeration. */
++static NTSTATUS resolv_get_searchlist( void *args )
++{
++    const struct get_searchlist_params *params = args;
++    const char *domains = getenv( "OFFICEDROID_DNS_DOMAINS" );
++    char *copy, *domain, *save;
++    DWORD needed = sizeof(WCHAR), offset = 0;
++
++    if (!(copy = strdup( domains ? domains : "" ))) return ERROR_NOT_ENOUGH_MEMORY;
++    for (domain = strtok_r( copy, " ,", &save ); domain; domain = strtok_r( NULL, " ,", &save ))
++        needed += (strlen(domain) + 1) * sizeof(WCHAR);
++    free( copy );
++    if (!params->list || *params->len < needed)
++    {
++        *params->len = needed;
++        return params->list ? ERROR_MORE_DATA : ERROR_SUCCESS;
++    }
++    *params->len = needed;
++    if (!(copy = strdup( domains ? domains : "" ))) return ERROR_NOT_ENOUGH_MEMORY;
++    for (domain = strtok_r( copy, " ,", &save ); domain; domain = strtok_r( NULL, " ,", &save ))
++        offset += ntdll_umbstowcs( domain, strlen(domain) + 1, params->list + offset,
++                                  needed / sizeof(WCHAR) - offset );
++    params->list[offset] = 0;
++    free( copy );
++    return ERROR_SUCCESS;
++}
++
++static NTSTATUS resolv_get_serverlist( void *args )
++{
++    const struct get_serverlist_params *params = args;
++    const char *servers = getenv( "OFFICEDROID_DNS_SERVERS" );
++    struct addrinfo hints = {0}, *addr;
++    char *copy, *server, *save;
++    DWORD count = 0, capacity = params->addrs ? *params->len : 0, needed;
++    DNS_ADDR_ARRAY *out = params->addrs;
++
++    if (!(copy = strdup( servers ? servers : "" ))) return ERROR_NOT_ENOUGH_MEMORY;
++    hints.ai_flags = AI_NUMERICHOST;
++    hints.ai_socktype = SOCK_DGRAM;
++    hints.ai_family = params->family == WS_AF_INET ? AF_INET :
++                      params->family == WS_AF_INET6 ? AF_INET6 : AF_UNSPEC;
++    for (server = strtok_r( copy, " ", &save ); server; server = strtok_r( NULL, " ", &save ))
++    {
++        if (getaddrinfo( server, NULL, &hints, &addr )) continue;
++        needed = FIELD_OFFSET(DNS_ADDR_ARRAY, AddrArray[count + 1]);
++        if (out && capacity >= needed)
++        {
++            DNS_ADDR *entry = &out->AddrArray[count];
++            memset( entry, 0, sizeof(*entry) );
++            if (addr->ai_family == AF_INET)
++            {
++                SOCKADDR_IN *sa = (SOCKADDR_IN *)entry->MaxSa;
++                sa->sin_family = WS_AF_INET;
++                sa->sin_addr.WS_s_addr = ((struct sockaddr_in *)addr->ai_addr)->sin_addr.s_addr;
++                entry->Data.DnsAddrUserDword[0] = sizeof(*sa);
++            }
++            else
++            {
++                struct sockaddr_in6 *src = (struct sockaddr_in6 *)addr->ai_addr;
++                SOCKADDR_IN6 *sa = (SOCKADDR_IN6 *)entry->MaxSa;
++                sa->sin6_family = WS_AF_INET6;
++                memcpy( &sa->sin6_addr, &src->sin6_addr, sizeof(sa->sin6_addr) );
++                sa->sin6_scope_id = src->sin6_scope_id;
++                entry->Data.DnsAddrUserDword[0] = sizeof(*sa);
++            }
++        }
++        ++count;
++        freeaddrinfo( addr );
++    }
++    free( copy );
++    *params->len = FIELD_OFFSET(DNS_ADDR_ARRAY, AddrArray[count]);
++    if (!out) return ERROR_SUCCESS;
++    if (capacity < *params->len) return ERROR_MORE_DATA;
++    memset( out, 0, FIELD_OFFSET(DNS_ADDR_ARRAY, AddrArray) );
++    out->AddrCount = out->MaxCount = count;
++    return ERROR_SUCCESS;
++}
++
++static NTSTATUS resolv_set_serverlist( void *args )
++{
++    const IP4_ARRAY *servers = args;
++    /* Android owns resolver selection, including Private DNS and VPN policy. */
++    return servers && servers->AddrCount ? ERROR_NOT_SUPPORTED : ERROR_SUCCESS;
++}
++
++static NTSTATUS resolv_query( void *args )
++{
++    const struct query_params *params = args;
++    int len;
++
++    if (params->options & (DNS_QUERY_USE_TCP_ONLY | DNS_QUERY_NO_RECURSION | DNS_QUERY_NO_WIRE_QUERY))
++        return ERROR_NOT_SUPPORTED;
++    len = res_query( params->name, ns_c_in, params->type, params->buf, *params->len );
++    if (len < 0)
++    {
++        switch (h_errno)
++        {
++        case NO_DATA:
++        case HOST_NOT_FOUND: return DNS_ERROR_RCODE_NAME_ERROR;
++        case TRY_AGAIN: return DNS_ERROR_RCODE_SERVER_FAILURE;
++        case NO_RECOVERY: return DNS_ERROR_RCODE_REFUSED;
++        default: return DNS_ERROR_RCODE_NOT_IMPLEMENTED;
++        }
++    }
++    *params->len = len;
++    return ERROR_SUCCESS;
++}
++#else
+ 
+ /* call res_init() just once because of a bug in Mac OS X 10.4 */
+ /* call once per thread on systems that have per-thread _res */
+@@ -341,6 +452,8 @@
+     return ret;
+ }
+ 
++#endif /* __ANDROID__ */
++
+ const unixlib_entry_t __wine_unix_call_funcs[] =
+ {
+     resolv_get_searchlist,
+--- a/dlls/iphlpapi/iphlpapi_main.c
++++ b/dlls/iphlpapi/iphlpapi_main.c
+@@ -1186,6 +1186,7 @@
+         MultiByteToWideChar( CP_ACP, 0, aa->AdapterName, -1, name, ARRAY_SIZE(name) );
+         if (!(flags & GAA_FLAG_SKIP_DNS_SERVER))
+         {
++            size = sizeof(buf);
+             servers = (DNS_ADDR_ARRAY *)buf;
+             for (attempt = 0; attempt < 5; attempt++)
+             {

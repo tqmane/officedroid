@@ -22,8 +22,9 @@ x86_64 Android results below are historical and do not validate this target.
   checks and both Notepad editing paths on x86_64 Android. Kerberos registration
   now succeeds for services 16, 9 and 10. ODT exits 17002 during App-V manifest
   merging: `removeChild failed, Error: 0x80070057`. No editor ran, and no account
-  or license prompt was reached. Native MSXML6 is a possible next compatibility
-  experiment; it has not yet been integrated or validated.
+  or license prompt was reached. Pinned official MSXML6 6.20.2017.0 (KB2957482) is now prepared and
+  streamed with on-device checksum checks into system32/syswow64 for the next
+  installation experiment. Its native override has not yet been validated on Android.
 
 
 Commands must preserve failure exit codes. `scripts/build.sh` runs host CTest,

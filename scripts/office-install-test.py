@@ -42,13 +42,15 @@ def diagnose():
             continue
         runtime = private('readlink', '-f', str(Path(marker).parent)).decode().strip()
         app = private('pwd').decode().strip()
-        dlls = runtime + '/x86_64/lib/wine'
+        abi = adb('shell', 'getprop', 'ro.product.cpu.abi').decode().strip()
+        machine = {'arm64-v8a': 'aarch64', 'x86_64': 'x86_64'}[abi]
+        dlls = runtime + '/' + abi + '/lib/wine'
         environment = [
             'HOME=' + app + '/files', 'TMPDIR=' + app + '/cache/wine',
             'WINEPREFIX=' + app + '/files/prefix', 'WINESERVER=' + native + '/libwineserver.so',
             'WINELOADER=' + native + '/libwine.so', 'WINEDLLPATH=' + dlls,
             'OFFICEDROID_DLL_DIR=' + dlls, 'OFFICEDROID_DATA_DIR=' + runtime + '/share/wine',
-            'LD_LIBRARY_PATH=' + native + ':' + dlls + '/x86_64-unix:' + runtime + '/x86_64/lib',
+            'LD_LIBRARY_PATH=' + native + ':' + dlls + '/' + machine + '-unix:' + runtime + '/' + abi + '/lib',
             'WINEDEBUG=-all', 'WINEDLLOVERRIDES=mscoree,mshtml=',
         ]
         # Run only after installation failed: attaching a debugger interrupts
@@ -102,6 +104,7 @@ def screen(name):
 
 
 result = {'office_version': '16.0.20430.20146', 'visual_cpp_version': '14.44.35211',
+          'msxml6': 'native Microsoft KB2957482',
           'source': args.source, 'installer_passed': False}
 directory = 'files/prefix/drive_c/office-setup'
 try:
@@ -123,13 +126,18 @@ try:
     sources = [Path('.build/office/odt/setup.exe'), Path('.build/office/odt/EULA'),
                    Path('.build/office/odt/vc_redist.x64.exe'), Path('.build/office/odt/vc_redist.x86.exe'),
                    config, Path('runtime/office/install-office.cmd')]
-    files_to_stage = [(source, Path(source.name)) for source in sources]
+    files_to_stage = [(source, directory + '/' + source.name) for source in sources]
     if args.source == 'media':
         media = Path('.build/office/media')
-        files_to_stage.extend((source, source.relative_to(media))
+        files_to_stage.extend((source, directory + '/' + source.relative_to(media).as_posix())
                               for source in sorted(media.rglob('*')) if source.is_file())
-    for source, relative in files_to_stage:
-        destination = directory + '/' + relative.as_posix()
+    for arch, system in [('x64', 'system32'), ('x86', 'syswow64')]:
+        for name in ('msxml6.dll', 'msxml6r.dll'):
+            destination = 'files/prefix/drive_c/windows/' + system + '/' + name
+            # Replace a prefix link without modifying the packaged builtin DLL.
+            private('rm', '-f', destination)
+            files_to_stage.append((Path('.build/office/msxml6') / arch / name, destination))
+    for source, destination in files_to_stage:
         private('mkdir', '-p', str(Path(destination).parent))
         command = 'cat > ' + shlex.quote(destination)
         # exec-in quotes these arguments again and does not wait for remote exit.

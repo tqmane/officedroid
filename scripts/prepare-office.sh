@@ -41,6 +41,23 @@ for arch in x64 x86; do
     cp "$OFFICEDROID_TOOLS/downloads/office/vc-redist-$arch.exe" \
         "$OFFICEDROID_ROOT/.build/office/odt/vc_redist.$arch.exe"
 done
+# App-V's manifest merge fails with Wine's MSXML implementation. Prepare the
+# official MSXML6 SP2 security update for prefix-local native DLL installation.
+# The amd64 Microsoft package also contains the i386 DLLs.
+msxml="$OFFICEDROID_TOOLS/downloads/office/msxml6-KB2957482-enu-amd64.exe"
+fetch https://download.microsoft.com/download/2/7/7/277681BE-4048-4A58-ABBA-259C465B1699/msxml6-KB2957482-enu-amd64.exe "$msxml" \
+    260cd870851ffc3c6d10b71691f134e20d8d03ac26073bb36951eacb7aa85897
+xml_stage="$OFFICEDROID_ROOT/.build/office/msxml6"
+"$OFFICEDROID_TOOLS/7zip/7zzs" e -tCab "$msxml" msxml6.msi -o"$xml_stage" -y
+"$OFFICEDROID_TOOLS/7zip/7zzs" e "$xml_stage/msxml6.msi" 'msxml6.dll.*' 'msxml6r.dll.*' -o"$xml_stage/extracted" -y
+for arch in x64 x86; do
+    suffix=1ECC0691_D2EB_4A33_9CBF_5487E5CB17DB
+    [[ $arch != x86 ]] || suffix=86F857F6_A743_463D_B2FE_98CB5F727E09
+    mkdir -p "$xml_stage/$arch"
+    for name in msxml6 msxml6r; do
+        cp "$xml_stage/extracted/$name.dll.$suffix" "$xml_stage/$arch/$name.dll"
+    done
+done
 if [[ ${1:-} == --media ]]; then
     # Prepare Microsoft's normal Office/Data source layout for offline ODT.
     # Symlinks avoid duplicating the 3.3 GB cache in this host workspace.

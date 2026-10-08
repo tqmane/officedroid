@@ -32,7 +32,7 @@ with (output / 'emulator.log').open('w') as log:
     process = subprocess.Popen([
         str(emulator), '-avd', 'officedroid-arm64',
         '-accel', 'off', '-no-window', '-no-audio', '-no-snapshot',
-        '-no-boot-anim', '-gpu', 'swiftshader', '-cores', '2',
+        '-no-boot-anim', '-show-kernel', '-gpu', 'swiftshader', '-cores', '2',
         '-memory', '3072', '-camera-back', 'none', '-camera-front', 'none',
         # The ARM64 macOS frontend still adds -enable-hvf with -accel off.
         # Explicitly request the QEMU software accelerator after frontend options.
@@ -69,6 +69,15 @@ with (output / 'emulator.log').open('w') as log:
     finally:
         result['elapsed_seconds'] = round(time.monotonic() - start, 1)
         (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
+        for name, arguments in [('devices', ['devices', '-l']),
+                                ('properties', ['-s', 'emulator-5554', 'shell', 'getprop']),
+                                ('logcat', ['-s', 'emulator-5554', 'logcat', '-b', 'all', '-d'])]:
+            with (output / (name + '.txt')).open('w') as diagnostic:
+                try:
+                    subprocess.run([adb, *arguments], env=env, stdout=diagnostic,
+                                   stderr=subprocess.STDOUT, timeout=20)
+                except subprocess.TimeoutExpired:
+                    diagnostic.write('\nDiagnostic timed out after 20 seconds.\n')
         process.terminate()
         try:
             process.wait(timeout=15)

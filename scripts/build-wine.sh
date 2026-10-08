@@ -63,6 +63,20 @@ cmake -S "$freetype" -B "$build/freetype-$abi" -G Ninja \
     -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON
 cmake --build "$build/freetype-$abi" -j "$jobs"
 cmake --install "$build/freetype-$abi"
+# Wine's import-library rules do not depend on configure's enabled architectures.
+# A native-only cache otherwise retains ARM64-only imports when adding ARM64EC.
+pe_compiler=$(command -v "${pe%%,*}-w64-mingw32-clang")
+pe_config="$pe:$pe_compiler:$($pe_compiler --version)"
+if [[ ! -f $build/wine-$abi/.officedroid-pe-config ]] || \
+        [[ $(cat "$build/wine-$abi/.officedroid-pe-config") != "$pe_config" ]]; then
+    python3 - "$build/wine-$abi" <<'PY'
+from pathlib import Path
+import sys
+for library in Path(sys.argv[1]).glob('**/*-windows/*.a'):
+    library.unlink()
+PY
+    printf '%s\n' "$pe_config" > "$build/wine-$abi/.officedroid-pe-config"
+fi
 # Reconfigure on each invocation so changed flags/source paths cannot reuse stale configuration.
     (cd "$build/wine-$abi" && \
         CC="$ndkbin/${target}29-clang" \

@@ -1,32 +1,9 @@
 From: OfficeDroid contributors
-Subject: [PATCH] wineandroid: trace CPU surface format and presentation results
+Subject: [PATCH] wineandroid: trace GDI source alpha and rectangles
 
-Record source alpha and public buffer parameters in the existing Android debug
-channel so emulator failures can be separated from GDI and mapper failures.
-License: LGPL-2.1-or-later, like the modified Wine files.
+Record source parameters in the existing Android debug channel.
+License: LGPL-2.1-or-later, like the modified Wine file.
 
---- a/dlls/wineandroid.drv/device.c
-+++ b/dlls/wineandroid.drv/device.c
-@@ -1146,8 +1146,11 @@
-     }
-     wrap_java_call();
-     ret = pANativeWindow_lock( win->parent, &buffer, NULL );
-+    TRACE( "%p CPU lock %d requested %dx%d\n", win->hwnd, ret, req->width, req->height );
-     if (!ret)
-     {
-+        TRACE( "%p buffer %dx%d stride %d format %d first pixel %08x\n", win->hwnd,
-+               buffer.width, buffer.height, buffer.stride, buffer.format, *(DWORD *)bits );
-         width = min( req->width, min( buffer.width, buffer.stride ) );
-         height = min( req->height, buffer.height );
-         if (buffer.format == PF_BGRA_8888 || buffer.format == PF_RGBA_8888)
-@@ -1161,6 +1164,7 @@
-                     dst[x] = (src[x] & 0xff00ff00) | ((src[x] & 0xff) << 16) | ((src[x] >> 16) & 0xff);
-             }
-             ret = pANativeWindow_unlockAndPost( win->parent );
-+            TRACE( "%p CPU post %d\n", win->hwnd, ret );
-         }
-         else
-         {
 --- a/dlls/wineandroid.drv/window.c
 +++ b/dlls/wineandroid.drv/window.c
 @@ -620,6 +620,10 @@

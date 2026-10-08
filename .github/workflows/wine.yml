@@ -1,0 +1,149 @@
+name: ARM64 Wine and Office
+on:
+  workflow_dispatch:
+    inputs:
+      office_install_timeout_seconds:
+        description: 'Official Office installation limit on ARM64 Android'
+        default: '7200'
+        required: true
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'patches/**'
+      - 'app/**'
+      - 'runtime/**'
+      - 'tests/**'
+      - '*.gradle'
+      - '.github/workflows/wine.yml'
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'patches/**'
+      - 'app/**'
+      - 'runtime/**'
+      - 'tests/**'
+      - '*.gradle'
+      - '.github/workflows/wine.yml'
+permissions:
+  contents: read
+concurrency:
+  group: wine-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  wine:
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: ./scripts/setup.sh --wine
+      - uses: actions/cache/restore@v4
+        id: wine-cache
+        with:
+          path: .build
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/build-fex.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**', 'patches/krb5/**') }}
+          restore-keys: |
+            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/build-fex.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
+            wine-${{ runner.os }}-${{ matrix.abi }}-
+      - name: Build Wine and preserve the real exit code
+        shell: bash
+        run: |
+          mkdir -p .build/logs
+          set -o pipefail
+          ./scripts/build-wine.sh '${{ matrix.abi }}' 2>&1 | tee '.build/logs/wine-${{ matrix.abi }}.log'
+      - uses: actions/cache/save@v4
+        if: steps.wine-cache.outputs.cache-hit != 'true'
+        with:
+          path: .build
+          key: ${{ steps.wine-cache.outputs.cache-primary-key }}
+      - name: Package APK and corresponding Wine source
+        run: |
+          python3 scripts/package-wine.py '${{ matrix.abi }}'
+          ./scripts/build.sh -PwineRuntime=true
+          git -C .tools/src/wine archive --format=tar.gz --output="$PWD/.build/wine-11.0-source.tar.gz" HEAD
+          git -C .tools/src/freetype archive --format=tar.gz --output="$PWD/.build/freetype-2.13.3-source.tar.gz" HEAD
+          git archive --format=tar.gz --output=.build/officedroid-build-source.tar.gz HEAD
+          cp .tools/downloads/gmp-6.3.0.tar.xz .build/gmp-6.3.0-source.tar.xz
+          cp .tools/downloads/nettle-3.10.2.tar.gz .build/nettle-3.10.2-source.tar.gz
+          cp .tools/downloads/gnutls-3.8.13.tar.xz .build/gnutls-3.8.13-source.tar.xz
+          cp .tools/downloads/krb5-1.22.2.tar.gz .build/krb5-1.22.2-source.tar.gz
+          tar --exclude=.git -czf .build/fex-source.tar.gz -C .tools/src fex
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wine-${{ matrix.abi }}-build
+          include-hidden-files: true
+          path: |
+            .build/*source.tar.*
+            app/build/outputs/apk/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-arm64-build-logs
+          include-hidden-files: true
+          path: |
+            .build/logs/
+            .build/wine-*/config.log
+            app/build/reports/
+  android:
+    name: ARM64 Android runtime and Office
+    needs: wine
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 220
+    env:
+      ANDROID_SERIAL: 127.0.0.1:5555
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: wine-arm64-v8a-build
+      - name: Install Android test and OCR dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends adb tesseract-ocr tesseract-ocr-eng
+      - name: Boot native ARM64 Android 15 on the standard runner
+        timeout-minutes: 20
+        env:
+          OFFICEDROID_KEEP_CONTAINER: '1'
+        run: bash scripts/android-arm64-container.sh
+      - name: Verify native and translated Windows execution on ARM64 Android
+        timeout-minutes: 40
+        run: bash scripts/android-device-test.sh
+      - name: Upload ARM64 runtime evidence before Office installation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wine-android-arm64-runtime-checks
+          include-hidden-files: true
+          path: |
+            .build/arm64-container/
+            .build/emulator/
+      - name: Prepare official Microsoft media without caching or uploading it
+        run: ./scripts/prepare-office.sh --media
+      - name: Install official Microsoft 365 on ARM64 Android
+        timeout-minutes: 130
+        env:
+          OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '7200' }}
+        run: python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS" --source media
+      - name: Verify Word, Excel and PowerPoint editing, saving and cold reopening
+        timeout-minutes: 30
+        run: python3 scripts/office-edit-test.py
+      - name: Collect Android diagnostics and stop the dedicated container
+        if: always() && env.OFFICEDROID_CONTAINER != ''
+        run: bash scripts/android-arm64-container.sh --stop
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wine-arm64-v8a-results
+          include-hidden-files: true
+          path: |
+            .build/arm64-container/
+            .build/emulator/

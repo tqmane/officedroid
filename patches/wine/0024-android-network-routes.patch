@@ -1,0 +1,214 @@
+From: OfficeDroid contributors
+Subject: [PATCH] nsiproxy: read Android routes through RTM_GETROUTE
+
+Android applications cannot read /proc/net/route or /proc/net/ipv6_route.
+GetAdaptersInfo therefore returned ERROR_NOT_SUPPORTED after interface
+enumeration was repaired. Use a bounded, unicast netlink route dump for
+both address families. Android's kernel permits RTM_GETROUTE with nlmsg_read;
+RTM_GETLINK and RTM_GETNEIGH have separate restricted permissions. No
+multicast bind, privilege escalation, fabricated routes or empty-success
+fallback is used. Reuse Wine's existing NSI route serialization.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/nsiproxy.sys/ip.c
++++ b/dlls/nsiproxy.sys/ip.c
+@@ -26,6 +26,12 @@
+ #include <stdarg.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
++#ifdef __ANDROID__
++#include <errno.h>
++#include <poll.h>
++#include <unistd.h>
++#include <linux/rtnetlink.h>
++#endif
+ 
+ #ifdef HAVE_NET_ROUTE_H
+ #include <net/route.h>
+@@ -1485,10 +1491,21 @@
+     }
+ }
+ 
++#ifdef __ANDROID__
++static NTSTATUS android_forward_enumerate_all( int family, void *key_data, UINT key_size,
++                                               void *rw_data, UINT rw_size,
++                                               void *dynamic_data, UINT dynamic_size,
++                                               void *static_data, UINT static_size, UINT_PTR *count );
++#endif
++
+ static NTSTATUS ipv4_forward_enumerate_all( void *key_data, UINT key_size, void *rw_data, UINT rw_size,
+                                             void *dynamic_data, UINT dynamic_size,
+                                             void *static_data, UINT static_size, UINT_PTR *count )
+ {
++#ifdef __ANDROID__
++    return android_forward_enumerate_all( AF_INET, key_data, key_size, rw_data, rw_size,
++                                           dynamic_data, dynamic_size, static_data, static_size, count );
++#else
+     UINT num = 0;
+     NTSTATUS status = STATUS_SUCCESS;
+     BOOL want_data = key_size || rw_size || dynamic_size || static_size;
+@@ -1701,6 +1718,7 @@
+     else status = STATUS_BUFFER_OVERFLOW;
+ 
+     return status;
++#endif
+ }
+ 
+ #ifdef __linux__
+@@ -1761,6 +1779,137 @@
+ }
+ #endif
+ 
++#ifdef __ANDROID__
++/* /proc/net is inaccessible to Android applications. RTM_GETROUTE uses
++ * nlmsg_read, unlike the restricted RTM_GETLINK/RTM_GETNEIGH operations.
++ * Do not bind a multicast socket: the request implicitly binds a private one. */
++static NTSTATUS android_forward_enumerate_all( int family, void *key_data, UINT key_size,
++                                               void *rw_data, UINT rw_size,
++                                               void *dynamic_data, UINT dynamic_size,
++                                               void *static_data, UINT static_size, UINT_PTR *count )
++{
++    struct { struct nlmsghdr hdr; struct rtmsg route; } request = {0};
++    struct pollfd poll_fd;
++    struct nlmsghdr *hdr;
++    NTSTATUS status = STATUS_UNSUCCESSFUL;
++    BOOL want_data = key_size || rw_size || dynamic_size || static_size;
++    unsigned int num = 0, addr_size = family == AF_INET ? 4 : 16;
++    char *buffer;
++    int fd, len;
++
++    if (!(buffer = malloc( 65536 ))) return STATUS_NO_MEMORY;
++    fd = socket( AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE );
++    if (fd == -1) goto done;
++    request.hdr.nlmsg_len = sizeof(request);
++    request.hdr.nlmsg_type = RTM_GETROUTE;
++    request.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
++    request.hdr.nlmsg_seq = 1;
++    request.route.rtm_family = family;
++    if (send( fd, &request, sizeof(request), 0 ) != sizeof(request)) goto done;
++    poll_fd.fd = fd;
++    poll_fd.events = POLLIN;
++
++    for (;;)
++    {
++        do len = poll( &poll_fd, 1, 5000 ); while (len == -1 && errno == EINTR);
++        if (len <= 0) goto done;
++        do len = recv( fd, buffer, 65536, MSG_TRUNC ); while (len == -1 && errno == EINTR);
++        if (len <= 0 || len > 65536) goto done;
++        for (hdr = (struct nlmsghdr *)buffer; NLMSG_OK( hdr, len ); hdr = NLMSG_NEXT( hdr, len ))
++        {
++            struct ipv4_route_data v4 = {0};
++            struct ipv6_route_data v6 = {0};
++            struct rtmsg *route;
++            struct rtattr *attr;
++            NET_LUID luid;
++            unsigned int index = 0, metric = 0;
++            BYTE prefix[16] = {0}, gateway[16] = {0};
++            BOOL have_gateway = FALSE;
++            int attr_len;
++
++            if (hdr->nlmsg_seq != request.hdr.nlmsg_seq) continue;
++            if (hdr->nlmsg_flags & NLM_F_DUMP_INTR) goto done;
++            if (hdr->nlmsg_type == NLMSG_ERROR) goto done;
++            if (hdr->nlmsg_type == NLMSG_DONE)
++            {
++                if (NLMSG_PAYLOAD( hdr, 0 ) >= sizeof(int) && *(int *)NLMSG_DATA( hdr )) goto done;
++                if (!want_data || num <= *count) { *count = num; status = STATUS_SUCCESS; }
++                else status = STATUS_BUFFER_OVERFLOW;
++                goto done;
++            }
++            if (hdr->nlmsg_type != RTM_NEWROUTE || hdr->nlmsg_len < NLMSG_LENGTH( sizeof(*route) )) continue;
++            route = NLMSG_DATA( hdr );
++            if (route->rtm_family != family || route->rtm_dst_len > addr_size * 8 ||
++                (route->rtm_type != RTN_UNICAST && route->rtm_type != RTN_LOCAL)) continue;
++            attr_len = RTM_PAYLOAD( hdr );
++            for (attr = RTM_RTA( route ); RTA_OK( attr, attr_len ); attr = RTA_NEXT( attr, attr_len ))
++            {
++                switch (attr->rta_type)
++                {
++                case RTA_OIF:
++                    if (RTA_PAYLOAD( attr ) == sizeof(index)) memcpy( &index, RTA_DATA( attr ), sizeof(index) );
++                    break;
++                case RTA_PRIORITY:
++                    if (RTA_PAYLOAD( attr ) == sizeof(metric)) memcpy( &metric, RTA_DATA( attr ), sizeof(metric) );
++                    break;
++                case RTA_DST:
++                    if (RTA_PAYLOAD( attr ) == addr_size) memcpy( prefix, RTA_DATA( attr ), addr_size );
++                    break;
++                case RTA_GATEWAY:
++                    if (RTA_PAYLOAD( attr ) == addr_size)
++                    {
++                        memcpy( gateway, RTA_DATA( attr ), addr_size );
++                        have_gateway = TRUE;
++                    }
++                    break;
++                }
++            }
++            if (!index || !convert_index_to_luid( index, &luid )) continue;
++            if (num < *count)
++            {
++                if (family == AF_INET)
++                {
++                    v4.luid = luid;
++                    v4.if_index = index;
++                    memcpy( &v4.prefix, prefix, addr_size );
++                    memcpy( &v4.next_hop, gateway, addr_size );
++                    v4.prefix_len = route->rtm_dst_len;
++                    v4.metric = metric;
++                    v4.protocol = have_gateway ? MIB_IPPROTO_NETMGMT : MIB_IPPROTO_LOCAL;
++                    v4.loopback = route->rtm_type == RTN_LOCAL;
++                    ipv4_forward_fill_entry( &v4, key_data, rw_data, dynamic_data, static_data );
++                }
++                else
++                {
++                    v6.luid = luid;
++                    v6.if_index = index;
++                    memcpy( &v6.prefix, prefix, addr_size );
++                    memcpy( &v6.next_hop, gateway, addr_size );
++                    v6.prefix_len = route->rtm_dst_len;
++                    v6.metric = metric;
++                    v6.protocol = have_gateway ? MIB_IPPROTO_NETMGMT : MIB_IPPROTO_LOCAL;
++                    v6.loopback = route->rtm_type == RTN_LOCAL;
++                    ipv6_forward_fill_entry( &v6, key_data, rw_data, dynamic_data, static_data );
++                }
++                key_data = (BYTE *)key_data + key_size;
++                rw_data = (BYTE *)rw_data + rw_size;
++                dynamic_data = (BYTE *)dynamic_data + dynamic_size;
++                static_data = (BYTE *)static_data + static_size;
++            }
++            ++num;
++        }
++    }
++done:
++    if (status != STATUS_SUCCESS && status != STATUS_BUFFER_OVERFLOW)
++        WARN( "RTM_GETROUTE family %d failed, errno %d\n", family, errno );
++    TRACE( "family %d returned %u routes, status %08x\n", family, num, status );
++    if (fd != -1) close( fd );
++    free( buffer );
++    return status;
++}
++#endif
++
++
+ struct in6_addr str_to_in6_addr(char *nptr, char **endptr)
+ {
+     struct in6_addr ret;
+@@ -1787,6 +1936,10 @@
+                                             void *dynamic_data, UINT dynamic_size,
+                                             void *static_data, UINT static_size, UINT_PTR *count )
+ {
++#ifdef __ANDROID__
++    return android_forward_enumerate_all( AF_INET6, key_data, key_size, rw_data, rw_size,
++                                           dynamic_data, dynamic_size, static_data, static_size, count );
++#else
+     UINT num = 0;
+     NTSTATUS status = STATUS_SUCCESS;
+     BOOL want_data = key_size || rw_size || dynamic_size || static_size;
+@@ -1851,6 +2004,7 @@
+     else status = STATUS_BUFFER_OVERFLOW;
+ 
+     return status;
++#endif
+ }
+ 
+ static struct module_table ipv4_tables[] =

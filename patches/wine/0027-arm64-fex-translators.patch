@@ -1,0 +1,22 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wine.inf: select packaged FEX translators on ARM64
+
+Windows Office and ODT contain AMD64 and i386 code. Use the real upstream
+FEX PE translators instead of Wine's unimplemented xtajit placeholders.
+The native Android Wine driver and Unix libraries remain AArch64/Bionic.
+License: LGPL-2.1-or-later.
+
+--- a/loader/wine.inf.in
++++ b/loader/wine.inf.in
+@@ -393,9 +393,9 @@
+ HKLM,%CurrentVersion%,"CommonFilesDir (x86)",,"%16428%"
+ HKLM,%CurrentVersion%,"ProgramFilesDir (Arm)",,"C:\Program Files (Arm)"
+ HKLM,%CurrentVersion%,"CommonFilesDir (Arm)",,"C:\Program Files (Arm)\Common Files"
+-HKLM,Software\Microsoft\Wow64\amd64,,2,"xtajit64.dll"
++HKLM,Software\Microsoft\Wow64\amd64,,2,"libarm64ecfex.dll"
+ HKLM,Software\Microsoft\Wow64\arm,,2,"wowarmhw.dll"
+-HKLM,Software\Microsoft\Wow64\x86,,2,"xtajit.dll"
++HKLM,Software\Microsoft\Wow64\x86,,2,"libwow64fex.dll"
+ 
+ [CurrentVersionWow64.ntx86]
+ HKLM,%CurrentVersion%,"ProgramFilesDir (x86)",,"%16422%"

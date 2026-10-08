@@ -1,0 +1,32 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: supply WoW64 I/O completion storage
+
+ntdll's iosb_client_ptr() uses IO_STATUS_BLOCK.Pointer in a WoW64 process,
+including when a synchronous device operation requires a pending completion.
+The Android driver passed an uninitialized Pointer. Provide an IOSB32 as
+ntdll's own sync_ioctl() does, and read the completion size from whichever
+status block was filled. The synchronous handle keeps both stack blocks
+alive until the request completes.
+
+This follows the first WoW64 GUI test reaching IOCTL_CREATE_WINDOW and then
+hanging before its first position update. Keep completion traces to verify
+the request finishes on the device as well as the native compile.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/device.c
++++ b/dlls/wineandroid.drv/device.c
+@@ -1273,3 +1273,4 @@
+     static HANDLE device;
+-    IO_STATUS_BLOCK iosb;
++    struct { NTSTATUS Status; ULONG Information; } iosb32 = {STATUS_PENDING};
++    IO_STATUS_BLOCK iosb = {.Pointer = &iosb32};
+     NTSTATUS status;
+@@ -1300,3 +1301,7 @@
+     }
+-    if (out_size) *out_size = iosb.Information;
++    /* Pending WoW64 completions use Pointer; immediate synchronous replies
++     * and native completions fill the native IOSB directly. */
++    if (out_size) *out_size = iosb32.Status == STATUS_PENDING ? iosb.Information : iosb32.Information;
++    TRACE( "ioctl %u completed status %08x, async status %08x\n",
++           code, (unsigned int)status, (unsigned int)iosb32.Status );
+     return status_to_android_error( status );

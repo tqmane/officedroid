@@ -1,0 +1,66 @@
+--- a/dlls/dnsapi/libresolv.c
++++ b/dlls/dnsapi/libresolv.c
+@@ -42,6 +42,12 @@
+ #endif
+ #ifdef HAVE_NETDB_H
+ # include <netdb.h>
++#endif
++
++#ifdef __ANDROID__
++# include <android/multinetwork.h>
++# include <errno.h>
++# include <poll.h>
+ #endif
+ 
+ #include "ntstatus.h"
+@@ -149,24 +155,38 @@
+ static NTSTATUS resolv_query( void *args )
+ {
+     const struct query_params *params = args;
+-    int len;
++    struct pollfd pfd;
++    uint32_t flags = 0;
++    int len, ready, rcode;
+ 
+     if (params->options & (DNS_QUERY_USE_TCP_ONLY | DNS_QUERY_NO_RECURSION | DNS_QUERY_NO_WIRE_QUERY))
+         return ERROR_NOT_SUPPORTED;
+-    len = res_query( params->name, ns_c_in, params->type, params->buf, *params->len );
++    if (params->options & DNS_QUERY_BYPASS_CACHE) flags |= ANDROID_RESOLV_NO_CACHE_LOOKUP;
++    /* The legacy Bionic res_query uses process-local resolver state with no
++     * configured nameservers. The public Android API delegates to netd. */
++    pfd.fd = android_res_nquery( NETWORK_UNSPECIFIED, params->name, ns_c_in, params->type, flags );
++    if (pfd.fd < 0)
++    {
++        ERR( "Android DNS query %s failed: %d\n", debugstr_a(params->name), pfd.fd );
++        return DNS_ERROR_RCODE_SERVER_FAILURE;
++    }
++    pfd.events = POLLIN;
++    do ready = poll( &pfd, 1, 15000 ); while (ready < 0 && errno == EINTR);
++    if (ready <= 0)
++    {
++        android_res_cancel( pfd.fd );
++        return ready == 0 ? ERROR_TIMEOUT : DNS_ERROR_RCODE_SERVER_FAILURE;
++    }
++    /* nresult closes the descriptor, including on failure. */
++    len = android_res_nresult( pfd.fd, &rcode, params->buf, *params->len );
+     if (len < 0)
+     {
+-        switch (h_errno)
+-        {
+-        case NO_DATA:
+-        case HOST_NOT_FOUND: return DNS_ERROR_RCODE_NAME_ERROR;
+-        case TRY_AGAIN: return DNS_ERROR_RCODE_SERVER_FAILURE;
+-        case NO_RECOVERY: return DNS_ERROR_RCODE_REFUSED;
+-        default: return DNS_ERROR_RCODE_NOT_IMPLEMENTED;
+-        }
+-    }
++        ERR( "Android DNS result %s failed: %d\n", debugstr_a(params->name), len );
++        return DNS_ERROR_RCODE_SERVER_FAILURE;
++    }
++    if ((unsigned int)len > *params->len) return ERROR_MORE_DATA;
+     *params->len = len;
+-    return ERROR_SUCCESS;
++    return ERROR_SUCCESS; /* Wine parses the response, including its DNS rcode. */
+ }
+ #else
+ 

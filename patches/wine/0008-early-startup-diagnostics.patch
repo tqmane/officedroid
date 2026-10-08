@@ -1,0 +1,83 @@
+From: OfficeDroid contributors
+Subject: [PATCH] ntdll: add opt-in early Android startup diagnostics
+
+OFFICEDROID_DEBUG_INIT enables checkpoints before the Wine debug system is ready.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -1913,27 +1913,47 @@
+     return 0;
+ }
+ 
++static void trace_android_startup( const char *phase )
++{
++    if (!getenv( "OFFICEDROID_DEBUG_INIT" )) return;
++    fprintf( stderr, "officedroid: Wine initialization: %s\n", phase );
++    fflush( stderr );
++}
++
+ /***********************************************************************
+  *           start_main_thread
+  */
+ static void start_main_thread(void)
+ {
+-    TEB *teb = virtual_alloc_first_teb();
+-
++    TEB *teb;
++
++    trace_android_startup( "allocate TEB" );
++    teb = virtual_alloc_first_teb();
++
++    trace_android_startup( "signals" );
+     signal_init_threading();
++    trace_android_startup( "debug channels" );
+     dbg_init();
++    trace_android_startup( "wineserver" );
+     startup_info_size = server_init_process();
++    trace_android_startup( "shared data" );
+     virtual_map_user_shared_data();
++    trace_android_startup( "CPU" );
+     init_cpu_info();
++    trace_android_startup( "files" );
+     init_files();
++    trace_android_startup( "startup info" );
+     init_startup_info();
+     *(ULONG_PTR *)&peb->CloudFileFlags = get_image_address();
+     set_load_order_app_name( main_wargv[0] );
++    trace_android_startup( "thread stack" );
+     init_thread_stack( teb, 0, 0, 0 );
+     NtCreateKeyedEvent( &keyed_event, GENERIC_READ | GENERIC_WRITE, NULL, 0 );
++    trace_android_startup( "PE ntdll" );
+     load_ntdll();
+     load_wow64_ntdll( main_image_info.Machine );
+     load_apiset_dll();
++    trace_android_startup( "process ready" );
+     server_init_process_done();
+ }
+ 
+@@ -2291,7 +2311,9 @@
+     main_argc = argc;
+     main_argv = argv;
+ 
++    trace_android_startup( "paths" );
+     init_paths();
++    trace_android_startup( "command line" );
+     if (!getenv( "WINELOADERNOEXEC" ) || argc <= 1) check_command_line( argc, argv );
+     unsetenv( "WINELOADERNOEXEC" );
+ 
+@@ -2305,11 +2327,14 @@
+     set_max_limit( RLIMIT_NICE );
+ #endif
+ 
++    trace_android_startup( "virtual memory" );
+     virtual_init();
++    trace_android_startup( "environment" );
+     init_environment();
+ 
+ #ifdef __APPLE__
+     apple_main_thread();
+ #endif
++    trace_android_startup( "main thread" );
+     start_main_thread();
+ }

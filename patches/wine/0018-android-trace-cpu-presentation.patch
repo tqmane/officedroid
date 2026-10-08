@@ -1,0 +1,19 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: trace GDI source alpha and rectangles
+
+Record source parameters in the existing Android debug channel.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/window.c
++++ b/dlls/wineandroid.drv/window.c
+@@ -620,6 +620,10 @@
+         int x, y, width;
+         RECT locked;
+ 
++        TRACE( "%p flush rect %s dirty %s alpha %08x mask %08x color key %08x\n",
++               window_surface->hwnd, wine_dbgstr_rect(rect), wine_dbgstr_rect(dirty),
++               alpha_bits, alpha_mask, color_key );
++
+         locked.left   = rc.left;
+         locked.top    = rc.top;
+         locked.right  = rc.right;

@@ -1,0 +1,45 @@
+From: OfficeDroid contributors
+Subject: [PATCH] wineandroid: mirror enabled CPU diagnostics to logcat
+
+Keep mapper evidence in the continuous Android log when ADB file transfers fail.
+Use Android logging while the Java TLS context is active; Wine trace headers
+require the Wine TEB and must not be called inside wrap_java_call.
+License: LGPL-2.1-or-later, like the modified Wine file.
+
+--- a/dlls/wineandroid.drv/device.c
++++ b/dlls/wineandroid.drv/device.c
+@@ -1127,6 +1127,7 @@
+     void *bits = NULL;
+     NTSTATUS status;
+     int ret, x, y, width, height;
++    BOOL trace = TRACE_ON(android);
+ 
+     if (in_size != sizeof(*req) || req->width <= 0 || req->height <= 0 ||
+         (ULONGLONG)req->width * req->height > 64 * 1024 * 1024)
+@@ -1148,9 +1149,17 @@
+         return STATUS_INVALID_PARAMETER;
+     }
+     wrap_java_call();
++    if (trace)
++        p__android_log_print( ANDROID_LOG_INFO, "wine", "CPU lock begin hwnd=%p size=%dx%d",
++                             win->hwnd, req->width, req->height );
+     ret = pANativeWindow_lock( win->parent, &buffer, NULL );
++    if (trace)
++        p__android_log_print( ANDROID_LOG_INFO, "wine", "CPU lock hwnd=%p result=%d", win->hwnd, ret );
+     if (!ret)
+     {
++        if (trace)
++            p__android_log_print( ANDROID_LOG_INFO, "wine", "CPU buffer hwnd=%p size=%dx%d stride=%d format=%d pixel=%08x",
++                                 win->hwnd, buffer.width, buffer.height, buffer.stride, buffer.format, *(DWORD *)bits );
+         width = min( req->width, min( buffer.width, buffer.stride ) );
+         height = min( req->height, buffer.height );
+         if (buffer.format == PF_BGRA_8888 || buffer.format == PF_RGBA_8888)
+@@ -1164,6 +1173,8 @@
+                     dst[x] = (src[x] & 0xff00ff00) | ((src[x] & 0xff) << 16) | ((src[x] >> 16) & 0xff);
+             }
+             ret = pANativeWindow_unlockAndPost( win->parent );
++            if (trace)
++                p__android_log_print( ANDROID_LOG_INFO, "wine", "CPU post hwnd=%p result=%d", win->hwnd, ret );
+         }
+         else
+         {

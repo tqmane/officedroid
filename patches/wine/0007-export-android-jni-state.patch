@@ -1,0 +1,23 @@
+From: OfficeDroid contributors
+Subject: [PATCH] ntdll: export Android JNI state used by wineandroid dlsym
+
+Wine builds Unix code with hidden visibility. readelf confirmed these three
+variables were missing from the dynamic symbol table, while wineandroid
+dereferences their dlsym results. Export only the established JNI interface.
+License: LGPL-2.1-or-later.
+
+--- a/dlls/ntdll/unix/loader.c
++++ b/dlls/ntdll/unix/loader.c
+@@ -1932,9 +1932,9 @@
+ #define WINE_JAVA_CLASS "org/winehq/wine/WineActivity"
+ #endif
+ 
+-JavaVM *java_vm = NULL;
+-jobject java_object = 0;
+-unsigned short java_gdt_sel = 0;
++__attribute__((visibility("default"))) JavaVM *java_vm = NULL;
++__attribute__((visibility("default"))) jobject java_object = 0;
++__attribute__((visibility("default"))) unsigned short java_gdt_sel = 0;
+ 
+ /* main Wine initialisation */
+ static jstring wine_init_jni( JNIEnv *env, jobject obj, jobjectArray cmdline, jobjectArray environment )

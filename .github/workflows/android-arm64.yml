@@ -1,0 +1,63 @@
+name: ARM64 Android execution
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  host:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ARM64 virtualization support
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+          python3 scripts/android-arm64-host-check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-host-${{ matrix.runner }}
+          include-hidden-files: true
+          path: .build/arm64-host/
+  software-boot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Android 15 ARM64 to isolate the Android 16 ART crash
+        run: bash scripts/setup-arm64-emulator.sh 35
+      - name: Measure Android 15 ARM64 software boot
+        run: python3 scripts/android-arm64-boot.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-software-boot-linux
+          include-hidden-files: true
+          path: .build/arm64-boot/
+  container-boot:
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [35, 36]
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate native ARM64 Android with Binder on the standard runner
+        env:
+          ANDROID_CONTAINER_API: ${{ matrix.api }}
+        run: bash scripts/android-arm64-container.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-container-boot-api${{ matrix.api }}
+          include-hidden-files: true
+          path: .build/arm64-container/

@@ -1,0 +1,18 @@
+From: OfficeDroid contributors
+Subject: [PATCH] ntdll: include strings.h for the inline LDT bitmap helper
+
+NDK r28c / Android API 29 does not declare ffs through string.h.
+The inline helper in unix_private.h must include the declaration itself.
+Based on Wine 11.0 db11d0fe6a169c457e23d007e20404643d067aa8.
+This Wine modification is LGPL-2.1-or-later, like the modified file.
+
+--- a/dlls/ntdll/unix/unix_private.h
++++ b/dlls/ntdll/unix/unix_private.h
+@@ -24,6 +24,7 @@
+ 
+ #include <pthread.h>
+ #include <signal.h>
++#include <strings.h>
+ #include "unixlib.h"
+ #include "wine/unixlib.h"
+ #include "wine/server.h"

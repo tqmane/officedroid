@@ -18,7 +18,8 @@ def adb(*args, **kwargs):
 
 
 def private(*args):
-    return adb('exec-out', 'run-as', 'org.officedroid', *map(shlex.quote, args))
+    # Shell v2 preserves the remote exit code; -T keeps binary streams unchanged.
+    return adb('shell', '-T', 'run-as', 'org.officedroid', *map(shlex.quote, args))
 
 
 def screen(name):
@@ -39,9 +40,12 @@ try:
     for source in [Path('.build/office/odt/setup.exe'), Path('.build/office/odt/EULA'),
                    Path('runtime/office/configuration.xml'), Path('runtime/office/install-office.cmd')]:
         command = 'cat > ' + shlex.quote(directory + '/' + source.name)
-        adb('exec-in', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command), input=source.read_bytes())
+        # exec-in quotes these arguments again and does not wait for remote exit.
+        adb('shell', '-T', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command), input=source.read_bytes())
         actual = private('sha256sum', directory + '/' + source.name).decode().split()[0]
-        assert actual == hashlib.sha256(source.read_bytes()).hexdigest(), 'Installer staging checksum mismatch'
+        expected = hashlib.sha256(source.read_bytes()).hexdigest()
+        assert actual == expected, f'{source.name}: staged SHA-256 {actual}, expected {expected}'
+        print(f'Staged and verified {source.name}: {source.stat().st_size} bytes', flush=True)
     adb('shell', 'am', 'start', '-W', '-n', 'org.officedroid/.MainActivity')
     adb('shell', 'uiautomator', 'dump', '/sdcard/office-install.xml')
     nodes = ET.fromstring(adb('exec-out', 'cat', '/sdcard/office-install.xml')).iter('node')
@@ -51,7 +55,7 @@ try:
     deadline = time.monotonic() + 1800
     checkpoint = 0
     while time.monotonic() < deadline:
-        completed = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', directory + '/exit-code.txt'], capture_output=True, timeout=15)
+        completed = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat', directory + '/exit-code.txt'], capture_output=True, timeout=15)
         if completed.returncode == 0:
             result['exit_code'] = int(completed.stdout.strip())
             assert result['exit_code'] == 0, f"ODT failed with exit code {result['exit_code']}"

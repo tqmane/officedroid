@@ -7,8 +7,10 @@ Linux distribution is part of the application architecture.
 **Development prototype, not a working Office product.** The APK currently
 provides separate launchers and a real native-executable diagnostic. An optional
 APK packages Wine 11.0 and FreeType built for Android. Android 16 x86_64 tests
-verify Wine initialization, Windows console commands and a persisted shared
-prefix. Microsoft Office installation, editing, authentication, document
+verify Wine initialization, 32/64-bit Windows commands, validated HTTPS and a
+persisted shared prefix. The actual Win32 Notepad editor displays keyboard input,
+copies/pastes, undoes changes, saves and shows the saved document after a cold
+restart. Microsoft Office installation, editing, authentication, document
 write-back and a shared graphical session lifecycle are not yet working.
 Launcher entries alone do not demonstrate Office compatibility.
 

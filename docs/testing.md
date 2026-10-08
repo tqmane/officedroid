@@ -101,6 +101,17 @@ paste/undo, giving that operation an independent undo history. Instrumentation
 also keeps its installed APK/prefix for the subsequent GUI check; the AVD is
 still wiped at the start, and each GUI test removes its own previous document.
 
+Run [37714593963](https://github.com/tqmane/officedroid/actions/runs/37714593963)
+at `135707f` passes all seven instrumented tests and the full Win32 GUI test:
+typing, copy/paste, undo, exact saved file content and cold reopening. The
+artifact includes `gui/gui-smoke.txt` and the actual `edited.png` / `reopened.png`.
+The next stage downloads and verifies official ODT, but its Android staging fails
+before the installer executes. ADB's `exec-in` quotes already-quoted shell
+arguments again and does not report the remote command's exit code. Office
+staging and private file checks now use non-PTY shell v2 (`adb shell -T`), which
+preserves binary input, waits for completion and propagates command failures.
+Installer execution and the three Office editing tests remain unverified.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

@@ -81,7 +81,7 @@ for app, extension, initial in [('Word', 'docx', 'INITIALWORD'),
         source = Path('tests/fixtures') / filename
         # Overwrite only this test's own fixture before each edit attempt.
         command = 'cat > ' + shlex.quote(destination)
-        adb('exec-in', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command), input=source.read_bytes())
+        adb('shell', '-T', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command), input=source.read_bytes())
         launch(app + 'Activity', filename)
         x, y = visible_token(directory / 'opened', initial)
         adb('shell', 'input', 'tap', str(x), str(y))

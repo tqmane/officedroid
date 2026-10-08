@@ -58,6 +58,12 @@ Office virtualization registration: OISVAPI reports RPC error 1747
 (`RPC_S_UNKNOWN_AUTHN_SERVICE`). Hardlink failures fall back to successful copies
 inside Microsoft's installer. Neither Office installation nor editing has passed.
 Installer runs include RPC traces to identify the requested authentication service.
+Read-only inspection of Microsoft's `AppVIsvSubsystemController.dll` shows that
+it registers Kerberos (service 16), then Negotiate and NTLM. Wine's previous
+build omitted Kerberos/GSSAPI. `build-kerberos.sh` now supplies the real MIT
+libraries for Android; both library builds and the local x86_64 Wine/APK build
+pass. Native/WoW64 registration probes and Office installation must still pass
+on Android before this dependency change can be called a runtime fix.
 The workflow defaults to `media`: the CDN route spent 30 minutes on thousands of
 small range requests in run `37748550796`. Never package or upload this directory or its
 linked Microsoft files.

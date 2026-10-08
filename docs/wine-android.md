@@ -60,3 +60,13 @@ targets. GnuTLS 3.8.13, Nettle 3.10.2 and GMP 6.3.0 are cross-built by
 Android's current Conscrypt certificate directory. Remaining optional libraries
 stay visible in configure logs. Successful compilation does not establish Office
 rendering, HTTPS behavior, media or Vulkan support.
+
+`scripts/build-kerberos.sh` builds pinned MIT Kerberos 1.22.2 for both Android
+ABIs. Wine configuration requires its Kerberos and GSSAPI libraries: Office's
+App-V server registers Kerberos before Negotiate and NTLM. The Android patch
+uses the public resolver API and ConnectivityManager's search domain, since
+Bionic does not expose `_res`. Shared libraries use builtin cryptography;
+KDC daemons, CLI clients and the OpenSSL-dependent PKINIT plugin are excluded.
+The app preloads the libraries by APK paths and uses its private cache for
+Kerberos tickets. This supplies real providers; it does not supply credentials
+or bypass Office authentication or licensing.

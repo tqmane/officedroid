@@ -52,6 +52,7 @@ cmake --install "$build/freetype-host"
 make -C "$build/wine-host" -j "$jobs" __tooldeps__
 flock -u 9
 "$OFFICEDROID_ROOT/scripts/build-tls.sh" "$abi"
+"$OFFICEDROID_ROOT/scripts/build-kerberos.sh" "$abi"
 deps="$build/deps-$abi"
 cmake -S "$freetype" -B "$build/freetype-$abi" -G Ninja \
     -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
@@ -74,7 +75,7 @@ cmake --install "$build/freetype-$abi"
         --with-wine-tools="$build/wine-host" --prefix=/opt/officedroid \
         --without-x --without-wayland --without-dbus --without-pulse --without-alsa \
         --without-cups --without-pcap --without-udev --without-usb --without-v4l2 \
-        --without-gstreamer --without-sdl --without-oss --with-gnutls)
+        --without-gstreamer --without-sdl --without-oss --with-gnutls --with-krb5 --with-gssapi)
 make -C "$build/wine-$abi" -j "$jobs"
 make -C "$build/wine-$abi" DESTDIR="$build/wine-install-$abi" install
 "$ndkbin/llvm-readelf" --file-header "$build/wine-$abi/server/wineserver"

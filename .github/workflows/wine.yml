@@ -56,9 +56,9 @@ jobs:
         id: wine-cache
         with:
           path: .build
-          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**') }}
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**', 'patches/krb5/**') }}
           restore-keys: |
-            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
+            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
             wine-${{ runner.os }}-${{ matrix.abi }}-
       - name: Build Wine and preserve the real exit code
         shell: bash
@@ -81,6 +81,7 @@ jobs:
           cp .tools/downloads/gmp-6.3.0.tar.xz .build/gmp-6.3.0-source.tar.xz
           cp .tools/downloads/nettle-3.10.2.tar.gz .build/nettle-3.10.2-source.tar.gz
           cp .tools/downloads/gnutls-3.8.13.tar.xz .build/gnutls-3.8.13-source.tar.xz
+          cp .tools/downloads/krb5-1.22.2.tar.gz .build/krb5-1.22.2-source.tar.gz
       - name: Install emulator components
         if: matrix.abi == 'x86_64'
         run: ./scripts/setup.sh --emulator

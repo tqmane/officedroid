@@ -118,7 +118,8 @@ public final class WineRuntime {
         JSONObject mapping = new JSONObject(text(context.getAssets().open("layout-" + abi + ".json")))
                 .getJSONObject("native");
         File nativeDirectory = new File(context.getApplicationInfo().nativeLibraryDir);
-        for (String name : new String[] {"libgmp.so", "libnettle.so", "libhogweed.so", "libgnutls.so", "libfreetype.so"}) {
+        for (String name : new String[] {"libgmp.so", "libnettle.so", "libhogweed.so", "libgnutls.so", "libfreetype.so",
+                "libkrb5support.so", "libcom_err.so", "libk5crypto.so", "libkrb5.so", "libgssapi_krb5.so"}) {
             System.load(inside(nativeDirectory, mapping.getString(abi + "/lib/" + name)).getAbsolutePath());
         }
     }
@@ -134,6 +135,7 @@ public final class WineRuntime {
         Map<String, String> env = new HashMap<>();
         env.put("HOME", context.getFilesDir().getAbsolutePath());
         env.put("TMPDIR", temporary.getAbsolutePath());
+        env.put("KRB5CCNAME", "FILE:" + new File(temporary, "krb5cc").getAbsolutePath());
         env.put("WINEPREFIX", prefix.getAbsolutePath());
         env.put("WINESERVER", nativeDirectory + "/libwineserver.so");
         env.put("WINELOADER", nativeDirectory + "/libwine.so");

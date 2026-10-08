@@ -13,6 +13,10 @@ After every runtime check passes, CI retains that emulator and shared prefix
 for the Office steps; an `always()` teardown captures diagnostics and stops it.
 The default local emulator command still runs all stages with exit-trap cleanup.
 
+Native and WoW64 RPC probes enumerate real SSPI packages, require successful
+Kerberos/Negotiate/NTLM server registration, and reject an unknown service.
+This reproduces App-V's registration requirement without declaring Office usable.
+
 After instrumentation, the emulator script retains the APK (installing it only
 if instrumentation removed it) and runs
 `scripts/launch-test.py`. It cold-starts all four launcher Activities using the

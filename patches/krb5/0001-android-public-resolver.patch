@@ -1,0 +1,56 @@
+--- a/src/lib/krb5/os/dnsglue.c
++++ b/src/lib/krb5/os/dnsglue.c
+@@ -85,6 +85,53 @@
+ #define PRIMARY_DOMAIN(h) dns_search_list_domain(h, 0)
+ #define DESTROY_HANDLE(h) dns_free(h)
+ 
++#elif defined(__ANDROID__)
++
++/* Modified for OfficeDroid: use Android's public resolver and the active
++ * network search domain supplied by ConnectivityManager. Bionic has no _res. */
++#include <android/multinetwork.h>
++#include <poll.h>
++
++static int
++android_query(const char *name, int nclass, int ntype, unsigned char *answer,
++              int length)
++{
++    struct pollfd pfd;
++    int ready, rcode;
++
++    pfd.fd = android_res_nquery(NETWORK_UNSPECIFIED, name, nclass, ntype, 0);
++    if (pfd.fd < 0)
++        return -1;
++    pfd.events = POLLIN;
++    do {
++        ready = poll(&pfd, 1, 15000);
++    } while (ready < 0 && errno == EINTR);
++    if (ready <= 0) {
++        android_res_cancel(pfd.fd);
++        return -1;
++    }
++    return android_res_nresult(pfd.fd, &rcode, answer, length);
++}
++
++static char *
++android_primary_domain(void)
++{
++    const char *domains = getenv("OFFICEDROID_DNS_DOMAINS");
++    size_t length;
++
++    if (domains == NULL)
++        return NULL;
++    domains += strspn(domains, " \t");
++    length = strcspn(domains, " \t");
++    return length ? strndup(domains, length) : NULL;
++}
++
++#define DECLARE_HANDLE(h)
++#define INIT_HANDLE(h) 1
++#define SEARCH(h, n, c, t, a, l) android_query(n, c, t, a, l)
++#define PRIMARY_DOMAIN(h) android_primary_domain()
++#define DESTROY_HANDLE(h)
++
+ #elif HAVE_RES_NINIT && HAVE_RES_NSEARCH
+ 
+ /* Use res_ninit, res_nsearch, and res_ndestroy or res_nclose. */

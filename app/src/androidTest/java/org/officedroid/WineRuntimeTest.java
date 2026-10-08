@@ -46,6 +46,25 @@ public class WineRuntimeTest {
         assumeTrue(android.os.Build.SUPPORTED_ABIS[0].equals("x86_64"));
         checkNetworkEnumeration("network-probe-wow64.exe");
     }
+    private void checkRpcAuthentication(String executable) throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));
+        File runtime = WineRuntime.prepare(context);
+        try {
+            String output = WineRuntime.run(context, 60, new File(runtime, executable).getAbsolutePath());
+            assertTrue("App-V requires Kerberos, Negotiate and NTLM registration: " + output,
+                    output.contains("RPC_AUTH_OK"));
+        } finally {
+            WineRuntime.stop(context);
+        }
+    }
+    @Test public void nativeWindowsRpcAuthentication() throws Exception {
+        checkRpcAuthentication("rpc-auth-probe.exe");
+    }
+    @Test public void wow64WindowsRpcAuthentication() throws Exception {
+        assumeTrue(android.os.Build.SUPPORTED_ABIS[0].equals("x86_64"));
+        checkRpcAuthentication("rpc-auth-probe-wow64.exe");
+    }
     @Test public void wineBootAndWindowsCommand() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assumeTrue("Wine is excluded from the diagnostic-only APK", WineRuntime.available(context));

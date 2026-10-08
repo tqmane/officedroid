@@ -6,7 +6,7 @@ at `db11d0fe6a169c457e23d007e20404643d067aa8` and remains LGPL-2.1-or-later.
 Its copyright header and LGPL text are preserved in the source and APK assets.
 Downloaded SDKs, toolchains and Wine source/build outputs are excluded from Git.
 The default diagnostic APK excludes Wine. The optional Wine APK contains Wine,
-its bundled libraries/fonts, FreeType, GnuTLS, Nettle and GMP, with upstream notices in
+its bundled libraries/fonts, FreeType, GnuTLS, Nettle, GMP and MIT Kerberos, with upstream notices in
 `assets/licenses/`. No APK includes Microsoft binaries. Gradle's wrapper remains
 under its Apache-2.0 source notice.
 
@@ -17,6 +17,7 @@ under its Apache-2.0 source notice.
 | [Bottles](https://github.com/bottlesdevs/Bottles) | GPL-3.0; research only |
 | [GnuTLS](https://www.gnutls.org/) | 3.8.13 library, LGPL-2.1-or-later; bundled dependencies' notices also retained |
 | [Nettle](https://www.lysator.liu.se/~nisse/nettle/) / [GMP](https://gmplib.org/) | 3.10.2 / 6.3.0, LGPL-3.0-or-later option; dynamically linked |
+| [MIT Kerberos](https://kerberos.org/) | 1.22.2, MIT/BSD and bundled component terms in upstream NOTICE; dynamically linked; Android resolver modification identified in source |
 | [7-Zip](https://www.7-zip.org/license.txt) | 25.01 host extraction tool, LGPL/BSD with unRAR restriction; not included in APK |
 | [Soda / Bottles Wine](https://github.com/bottlesdevs/wine) | Wine-derived, per-file and patch notices must be retained; research only |
 | [Bottles build-tools](https://github.com/bottlesdevs/build-tools) | Inspected scripts carry MIT notices; research only |
@@ -32,10 +33,10 @@ under its Apache-2.0 source notice.
 Portions of this software are copyright © 1996–2024 The FreeType Project
 (www.freetype.org). All rights reserved.
 
-Wine workflow artifacts include the exact unmodified Wine, FreeType, GnuTLS, Nettle and GMP sources
+Wine workflow artifacts include the exact unmodified Wine, FreeType, GnuTLS, Nettle, GMP and Kerberos sources
 and the complete OfficeDroid source revision containing patches and build scripts.
 The APK's license assets retain Wine's LGPL, author list, bundled-library notices,
-FreeType, TLS-library and LLVM/MinGW notices. The runtime is not signature-locked:
+FreeType, TLS-library, Kerberos and LLVM/MinGW notices. The runtime is not signature-locked:
 users can modify/rebuild/repackage it using the documented scripts and their own
 Android signing key. Reverse engineering for debugging changes to LGPL components
 is permitted. Wine modifications in `patches/wine/` retain LGPL-2.1-or-later.

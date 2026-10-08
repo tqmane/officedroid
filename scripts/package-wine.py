@@ -31,6 +31,7 @@ notice_sources = {
     'nettle': (tool_dir / 'src/nettle-3.10.2', ['COPYING.LESSERv3', 'COPYINGv2', 'COPYINGv3', 'AUTHORS']),
     'gnutls': (tool_dir / 'src/gnutls-3.8.13', ['COPYING', 'COPYING.LESSERv2', 'README.md', 'AUTHORS']),
     'llvm-mingw': (tool_dir / 'llvm-mingw', ['LICENSE.TXT']),
+    'krb5': (root / f'.build/deps-{abis[0]}/share/licenses/krb5', ['NOTICE']),
 }
 for component, (source, names) in notice_sources.items():
     if component == 'gnutls':
@@ -61,6 +62,13 @@ for abi in abis:
         subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
                         str(root / 'runtime/win32/network-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',
                         '-liphlpapi', '-ldnsapi', '-o', str(path)], check=True)
+        network_probes.append((path, name))
+    for machine, name in [(compiler, 'rpc-auth-probe.exe')] + (
+            [('i686', 'rpc-auth-probe-wow64.exe')] if abi == 'x86_64' else []):
+        path = root / f'.build/{abi}-{name}'
+        subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
+                        str(root / 'runtime/win32/rpc-auth-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',
+                        '-lrpcrt4', '-lsecur32', '-o', str(path)], check=True)
         network_probes.append((path, name))
     native = root / '.build/wine-jniLibs' / abi
     native.mkdir(parents=True, exist_ok=True)

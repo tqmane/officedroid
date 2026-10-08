@@ -117,8 +117,9 @@ try:
     save_document()
     # A new edit control starts with an empty undo history. Otherwise classic
     # Notepad coalesces the original typing, newline and paste into one undo.
-    open_editor()
+    window = open_editor()
     wait_for_text('initial-reopened', 'OFFICEDROIDGUI')
+    adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Select text
     adb('shell', 'input', 'keycombination', '113', '31')  # Ctrl+C
     adb('shell', 'input', 'keyevent', '123')  # End

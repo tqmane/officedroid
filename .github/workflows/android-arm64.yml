@@ -8,6 +8,7 @@ on:
       - 'scripts/android-arm64-host-check.py'
       - 'scripts/setup-arm64-emulator.sh'
       - 'scripts/android-arm64-boot.py'
+      - 'scripts/android-arm64-container.sh'
 permissions:
   contents: read
 jobs:
@@ -49,3 +50,16 @@ jobs:
           name: arm64-software-boot-linux
           include-hidden-files: true
           path: .build/arm64-boot/
+  container-boot:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Evaluate native ARM64 Android 16 with Binder on the standard runner
+        run: bash scripts/android-arm64-container.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-container-boot
+          include-hidden-files: true
+          path: .build/arm64-container/

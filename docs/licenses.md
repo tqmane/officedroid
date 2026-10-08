@@ -6,7 +6,7 @@ at `db11d0fe6a169c457e23d007e20404643d067aa8` and remains LGPL-2.1-or-later.
 Its copyright header and LGPL text are preserved in the source and APK assets.
 Downloaded SDKs, toolchains and Wine source/build outputs are excluded from Git.
 The default diagnostic APK excludes Wine. The optional Wine APK contains Wine,
-its bundled libraries/fonts, FreeType, GnuTLS, Nettle, GMP and MIT Kerberos, with upstream notices in
+its bundled libraries/fonts, FreeType, GnuTLS, Nettle, GMP, MIT Kerberos and (on ARM64) FEX, with upstream notices in
 `assets/licenses/`. No APK includes Microsoft binaries. Gradle's wrapper remains
 under its Apache-2.0 source notice.
 
@@ -24,7 +24,8 @@ under its Apache-2.0 source notice.
 | [Wine-Staging](https://github.com/wine-staging/wine-staging) | Inspect per-patch licensing before any import; metadata reviewed, not built |
 | [Valve Wine / Proton](https://github.com/ValveSoftware/wine) | Wine and component-specific licenses; Soda source dependency reviewed |
 | [Wine-TKG](https://github.com/Frogging-Family/wine-tkg-git) | Per-script/patch licenses; Soda build dependency reviewed |
-| [FEX](https://github.com/FEX-Emu/FEX), [Box64](https://github.com/ptitSeb/box64), [Box86](https://github.com/ptitSeb/box86) | MIT projects, with separately licensed dependencies; research only |
+| [Box64](https://github.com/ptitSeb/box64), [Box86](https://github.com/ptitSeb/box86) | MIT projects, with separately licensed dependencies; research only |
+| [FEX](https://github.com/AndreRH/FEX/tree/fa556167d5a64ec7adb5503c2aa15b169c292cac) | MIT with separately licensed bundled dependencies; unchanged PE translators for ARM64 Wine; dependency notices included |
 | [Hangover](https://github.com/AndreRH/hangover) | LGPL-2.1 repository, component notices still apply; research only |
 | [Winlator](https://github.com/brunodev85/winlator) | LGPL-2.1 repository and separately licensed bundled components; research only |
 | [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw) | Build tool; LLVM and MinGW runtime notices are included for code linked into PE binaries |
@@ -40,7 +41,9 @@ FreeType, TLS-library, Kerberos and LLVM/MinGW notices. The runtime is not signa
 users can modify/rebuild/repackage it using the documented scripts and their own
 Android signing key. Reverse engineering for debugging changes to LGPL components
 is permitted. Wine modifications in `patches/wine/` retain LGPL-2.1-or-later.
-Any future translator, font or proprietary library needs its own inventory.
+FEX source artifacts include its pinned submodule sources. Its upstream source is
+built unchanged; FEX/LLVM-MinGW runtime and dependency notices are included.
+Any additional font or proprietary library needs its own inventory.
 
 Office, Microsoft authentication material and Microsoft trademark icons are not
 bundled. Launchers use Android's generic icon until project artwork is supplied.

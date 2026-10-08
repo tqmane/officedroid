@@ -33,6 +33,12 @@ notice_sources = {
     'llvm-mingw': (tool_dir / 'llvm-mingw', ['LICENSE.TXT']),
     'krb5': (root / f'.build/deps-{abis[0]}/share/licenses/krb5', ['NOTICE']),
 }
+if 'arm64-v8a' in abis:
+    for component, source in [('fex', tool_dir / 'src/fex'),
+                              ('llvm-mingw-fex', tool_dir / 'llvm-mingw-fex')]:
+        notice_sources[component] = (source, [p.relative_to(source).as_posix()
+            for p in source.rglob('*') if p.is_file()
+            and p.name.upper().startswith(('LICENSE', 'COPYING', 'NOTICE'))])
 for component, (source, names) in notice_sources.items():
     if component == 'gnutls':
         names += [p.relative_to(source).as_posix() for p in source.rglob('*')
@@ -56,15 +62,17 @@ for abi in abis:
     subprocess.run([str(tool_dir / f'llvm-mingw/bin/{compiler}-w64-mingw32-clang'),
                     str(root / 'runtime/win32/https-probe.c'), '-O2', '-lwinhttp', '-o', str(probe)], check=True)
     network_probes = []
-    for machine, name in [(compiler, 'network-probe.exe')] + (
-            [('i686', 'network-probe-wow64.exe')] if abi == 'x86_64' else []):
+    for machine, name in [(compiler, 'network-probe.exe'),
+                          ('i686', 'network-probe-wow64.exe'),
+                          ('x86_64', 'network-probe-x64.exe')]:
         path = root / f'.build/{abi}-{name}'
         subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
                         str(root / 'runtime/win32/network-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',
                         '-liphlpapi', '-ldnsapi', '-o', str(path)], check=True)
         network_probes.append((path, name))
-    for machine, name in [(compiler, 'rpc-auth-probe.exe')] + (
-            [('i686', 'rpc-auth-probe-wow64.exe')] if abi == 'x86_64' else []):
+    for machine, name in [(compiler, 'rpc-auth-probe.exe'),
+                          ('i686', 'rpc-auth-probe-wow64.exe'),
+                          ('x86_64', 'rpc-auth-probe-x64.exe')]:
         path = root / f'.build/{abi}-{name}'
         subprocess.run([str(tool_dir / f'llvm-mingw/bin/{machine}-w64-mingw32-clang'),
                         str(root / 'runtime/win32/rpc-auth-probe.c'), '-O2', '-Wall', '-Wextra', '-Werror',

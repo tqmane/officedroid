@@ -1,5 +1,31 @@
 # Test plan and results
 
+## Current target and blockers (2026-10-08)
+
+The required target is **ARM64 Android on standard GitHub-hosted runners**.
+No Windows Word, Excel or PowerPoint editing screen has been verified. Prior
+x86_64 Android results below are historical and do not validate this target.
+
+- ARM64 Wine compilation passes (run 37762079154). The Wine workflow currently
+  builds/packages ARM64 only; its green result does not mean Android or Office ran.
+- Standard Ubuntu ARM has no `/dev/kvm`; standard macOS ARM rejects actual
+  Hypervisor VM creation (`0xfae9400f`), measured in run 37762282587.
+- macOS emulator 37.2.12 ignores `-accel off` for ARM64 and still enables HVF.
+  Explicit QEMU TCG also crashes in HVF initialization (run 37763903773).
+  `android-arm64.yml` now measures the bundled AArch64 QEMU engine on a standard
+  Linux host with software translation. Its guest ABI must be `arm64-v8a`.
+- `scripts/build-fex.sh` builds pinned upstream FEX unchanged for i386 and AMD64
+  Windows execution inside ARM64 Wine. Both PE DLL builds pass locally. Wine's
+  ARM64EC integration and Android execution remain under validation. x86/x64
+  network and RPC probes are mandatory in the Wine APK, including on ARM64.
+- Last historical Office installation (run 37757895102) passes all eleven runtime
+  checks and both Notepad editing paths on x86_64 Android. Kerberos registration
+  now succeeds for services 16, 9 and 10. ODT exits 17002 during App-V manifest
+  merging: `removeChild failed, Error: 0x80070057`. No editor ran, and no account
+  or license prompt was reached. Native MSXML6 is a possible next compatibility
+  experiment; it has not yet been integrated or validated.
+
+
 Commands must preserve failure exit codes. `scripts/build.sh` runs host CTest,
 cross-builds both Android ABIs, builds APK/test APK and runs Android lint.
 `scripts/emulator-test.sh` boots Android 16, configures tablet landscape, runs

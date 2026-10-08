@@ -1,18 +1,6 @@
-name: Wine Android
+name: ARM64 Wine build
 on:
   workflow_dispatch:
-    inputs:
-      office_install_timeout_seconds:
-        description: 'ODT time limit (shorter runs are useful when diagnosing a startup hang)'
-        default: '1800'
-        required: true
-        type: string
-      office_source:
-        description: 'Microsoft CDN or checksum-verified official media staged before installation'
-        default: media
-        required: true
-        type: choice
-        options: [cdn, media]
   push:
     branches: [main]
     paths:
@@ -56,9 +44,9 @@ jobs:
         id: wine-cache
         with:
           path: .build
-          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**', 'patches/krb5/**') }}
+          key: wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/build-fex.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-${{ hashFiles('patches/wine/**', 'patches/krb5/**') }}
           restore-keys: |
-            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
+            wine-${{ runner.os }}-${{ matrix.abi }}-${{ hashFiles('scripts/build-wine.sh', 'scripts/build-tls.sh', 'scripts/build-kerberos.sh', 'scripts/build-fex.sh', 'scripts/setup.sh', 'scripts/env.sh') }}-
             wine-${{ runner.os }}-${{ matrix.abi }}-
       - name: Build Wine and preserve the real exit code
         shell: bash
@@ -82,58 +70,7 @@ jobs:
           cp .tools/downloads/nettle-3.10.2.tar.gz .build/nettle-3.10.2-source.tar.gz
           cp .tools/downloads/gnutls-3.8.13.tar.xz .build/gnutls-3.8.13-source.tar.xz
           cp .tools/downloads/krb5-1.22.2.tar.gz .build/krb5-1.22.2-source.tar.gz
-      - name: Install emulator components
-        if: matrix.abi == 'x86_64'
-        run: ./scripts/setup.sh --emulator
-      - name: Enable KVM
-        if: matrix.abi == 'x86_64'
-        run: |
-          if [ -e /dev/kvm ]; then
-            sudo chmod a+rw /dev/kvm
-          else
-            echo 'KVM is unavailable on this runner; testing with bounded software emulation.'
-          fi
-      - name: Prepare official Office media
-        if: matrix.abi == 'x86_64' && (inputs.office_source || 'media') == 'media'
-        timeout-minutes: 15
-        run: ./scripts/prepare-office.sh --media
-      - name: Verify Wine networking and Win32 editing on Android 16
-        if: matrix.abi == 'x86_64'
-        timeout-minutes: 35
-        env:
-          OFFICEDROID_KEEP_EMULATOR: '1'
-        run: ./scripts/emulator-test.sh -PwineRuntime=true
-      - name: Upload runtime verification before Office installation
-        if: always() && matrix.abi == 'x86_64'
-        uses: actions/upload-artifact@v4
-        with:
-          name: wine-android-runtime-checks
-          include-hidden-files: true
-          path: |
-            .build/emulator/gui/
-            .build/emulator/gui-wow64/
-            .build/emulator/launch/
-            app/build/outputs/androidTest-results/
-      - name: Install official Microsoft 365 on Android
-        if: matrix.abi == 'x86_64'
-        timeout-minutes: 40
-        env:
-          OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '1800' }}
-          OFFICE_SOURCE: ${{ inputs.office_source || 'media' }}
-        run: |
-          source scripts/env.sh
-          export ANDROID_SERIAL=emulator-5554
-          python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS" --source "$OFFICE_SOURCE"
-      - name: Verify Word, Excel and PowerPoint editing, saving and cold reopening
-        if: matrix.abi == 'x86_64'
-        timeout-minutes: 20
-        run: |
-          source scripts/env.sh
-          export ANDROID_SERIAL=emulator-5554
-          python3 scripts/office-edit-test.py
-      - name: Collect Android diagnostics and stop the emulator
-        if: always() && matrix.abi == 'x86_64' && env.OFFICEDROID_EMULATOR_PID != ''
-        run: ./scripts/emulator-stop.sh "$OFFICEDROID_EMULATOR_PID" "$OFFICEDROID_LOGCAT_PID"
+          tar --exclude=.git -czf .build/fex-source.tar.gz -C .tools/src fex
       - uses: actions/upload-artifact@v4
         if: always()
         with:

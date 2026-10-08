@@ -1,0 +1,61 @@
+From d53a9ba0cd5ee46852b00e4a106e2eb679b5aa3d Mon Sep 17 00:00:00 2001
+From: Billy Laws <blaws05@gmail.com>
+Date: Mon, 27 Jul 2026 22:02:06 +0200
+Subject: [PATCH] ntdll: Add RtlWow64SuspendThread semi-stub implementation.
+
+Backport of upstream Wine commit d53a9ba0cd5ee46852b00e4a106e2eb679b5aa3d.
+FEX imports this real thread-suspension API. It forwards to NtSuspendThread;
+upstream still notes the future Wow64SuspendLocalThread refinement.
+License: LGPL-2.1-or-later, like the modified Wine files.
+
+---
+ dlls/ntdll/ntdll.spec |  1 +
+ dlls/ntdll/process.c  | 10 ++++++++++
+ include/winternl.h    |  1 +
+ 3 files changed, 12 insertions(+)
+
+diff --git a/dlls/ntdll/ntdll.spec b/dlls/ntdll/ntdll.spec
+index 0b6d9b2cbf45..10d42eeb1387 100644
+--- a/dlls/ntdll/ntdll.spec
++++ b/dlls/ntdll/ntdll.spec
+@@ -1150,6 +1150,7 @@
+ @ stdcall -arch=win64 RtlWow64PushCrossProcessWorkOntoWorkList(ptr ptr ptr)
+ @ stdcall -arch=win64 RtlWow64RequestCrossProcessHeavyFlush(ptr)
+ @ stdcall -arch=win64 RtlWow64SetThreadContext(long ptr)
++@ stdcall -arch=win64 RtlWow64SuspendThread(long ptr)
+ @ stub RtlWriteMemoryStream
+ @ stdcall RtlWriteRegistryValue(long ptr wstr long ptr long)
+ @ stub RtlZeroHeap
+diff --git a/dlls/ntdll/process.c b/dlls/ntdll/process.c
+index e450eea70e80..5074a72fdf1d 100644
+--- a/dlls/ntdll/process.c
++++ b/dlls/ntdll/process.c
+@@ -463,6 +463,16 @@ BOOLEAN WINAPI RtlWow64RequestCrossProcessHeavyFlush( CROSS_PROCESS_WORK_HDR *li
+     return TRUE;
+ }
+ 
++
++/***********************************************************************
++ *              RtlWow64SuspendThread (NTDLL.@)
++ */
++NTSTATUS WINAPI RtlWow64SuspendThread( HANDLE thread, ULONG *count )
++{
++    /* FIXME: Use Wow64SuspendLocalThread when available */
++    return NtSuspendThread( thread, count );
++}
++
+ #endif /* _WIN64 */
+ 
+ /**********************************************************************
+diff --git a/include/winternl.h b/include/winternl.h
+index 81dc3db2b740..33d32b6de5cb 100644
+--- a/include/winternl.h
++++ b/include/winternl.h
+@@ -5420,6 +5420,7 @@ NTSYSAPI USHORT    WINAPI RtlWow64GetCurrentMachine(void);
+ NTSYSAPI NTSTATUS  WINAPI RtlWow64GetProcessMachines(HANDLE,USHORT*,USHORT*);
+ NTSYSAPI NTSTATUS  WINAPI RtlWow64GetSharedInfoProcess(HANDLE,BOOLEAN*,WOW64INFO*);
+ NTSYSAPI NTSTATUS  WINAPI RtlWow64IsWowGuestMachineSupported(USHORT,BOOLEAN*);
++NTSYSAPI NTSTATUS  WINAPI RtlWow64SuspendThread(HANDLE,ULONG*);
+ NTSYSAPI NTSTATUS  WINAPI RtlWriteRegistryValue(ULONG,PCWSTR,PCWSTR,ULONG,PVOID,ULONG);
+ NTSYSAPI NTSTATUS  WINAPI RtlZombifyActivationContext(struct _ACTIVATION_CONTEXT *);
+ NTSYSAPI NTSTATUS  WINAPI RtlpNtCreateKey(PHANDLE,ACCESS_MASK,const OBJECT_ATTRIBUTES*,ULONG,const UNICODE_STRING*,ULONG,PULONG);

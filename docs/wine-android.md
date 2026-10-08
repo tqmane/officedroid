@@ -22,7 +22,15 @@ Inspected `configure.ac`, `dlls/wineandroid.drv`, `dlls/ntdll/unix/loader.c`,
   copy path for PE images before this occurs; it does not change SELinux policy.
 
 `scripts/build-wine.sh` isolates host tools, target output and staged installation.
-Both x86_64 and aarch64 builds complete with NDK r28c and LLVM-MinGW 20250709.
+The previous native-only x86_64 and aarch64 builds completed with NDK r28c and
+LLVM-MinGW 20250709. The active ARM64 build adds ARM64EC and i386 Windows modules,
+using pinned bylaws LLVM-MinGW 20250920 and unchanged FEX at
+`fa556167d5a64ec7adb5503c2aa15b169c292cac`. `scripts/build-fex.sh` compiles both
+`libwow64fex.dll` and `libarm64ecfex.dll`; patch 0027 selects them in Wine's
+ARM64 registry defaults. Patch 0028 backports Wine's real `RtlWow64SuspendThread`
+forwarder required by FEX. Its upstream local-thread refinement remains a known
+limitation. The ELF side and graphical driver remain native Android/Bionic.
+ARM64EC compilation and execution are still being validated.
 `scripts/package-wine.py` produces optional APK inputs, verifies each ELF's ABI,
 and keeps native executable code in Android-installed libraries. Wine PE/data
 files are checksummed ZIP assets. `WineRuntime` extracts those into private

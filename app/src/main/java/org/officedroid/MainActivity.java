@@ -65,7 +65,7 @@ public class MainActivity extends Activity {
         addButton(column, "Run native diagnostics", this::diagnose);
         if (WineRuntime.available(this)) addButton(column, "Open Windows editor", () ->
             startActivity(new Intent(this, org.winehq.wine.WineActivity.class)));
-        if (WineRuntime.available(this) && Build.SUPPORTED_ABIS[0].equals("x86_64")) {
+        if (WineRuntime.available(this)) {
             addButton(column, "Open 32-bit Windows editor", () -> startActivity(
                 new Intent(this, org.winehq.wine.WineActivity.class).putExtra("editor_wow64", true)));
         }

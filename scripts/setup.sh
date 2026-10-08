@@ -97,6 +97,12 @@ if $wine && [[ ! -x $OFFICEDROID_TOOLS/llvm-mingw/bin/x86_64-w64-mingw32-clang ]
     mkdir -p "$OFFICEDROID_TOOLS/llvm-mingw"
     tar -xf "$archive" --strip-components=1 -C "$OFFICEDROID_TOOLS/llvm-mingw"
 fi
+if $wine && [[ ! -x $OFFICEDROID_TOOLS/llvm-mingw-fex/bin/arm64ec-w64-mingw32-clang ]]; then
+    archive="$OFFICEDROID_TOOLS/downloads/llvm-mingw-fex-20250920.tar.xz"
+    download https://github.com/bylaws/llvm-mingw/releases/download/20250920/llvm-mingw-20250920-ucrt-ubuntu-22.04-x86_64.tar.xz "$archive" 8dd8c34fc051a50c2fae86015f35057f8aae93fe1e19b34537ef1269a8b4c772 sha256
+    mkdir -p "$OFFICEDROID_TOOLS/llvm-mingw-fex"
+    tar -xf "$archive" --strip-components=1 -C "$OFFICEDROID_TOOLS/llvm-mingw-fex"
+fi
 javac -version
 gradle --version
 "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version

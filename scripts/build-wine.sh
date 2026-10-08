@@ -4,7 +4,8 @@ source "$(dirname "$0")/env.sh"
 abi=${1:-x86_64}
 case "$abi" in
     x86_64) target=x86_64-linux-android; pe=x86_64,i386 ;;
-    arm64-v8a) target=aarch64-linux-android; pe=aarch64 ;;
+    arm64-v8a) target=aarch64-linux-android; pe=arm64ec,aarch64,i386
+        export PATH="$OFFICEDROID_TOOLS/llvm-mingw-fex/bin:$PATH" ;;
     *) echo 'Usage: build-wine.sh {x86_64|arm64-v8a}' >&2; exit 2 ;;
 esac
 revision=db11d0fe6a169c457e23d007e20404643d067aa8
@@ -78,5 +79,11 @@ cmake --install "$build/freetype-$abi"
         --without-gstreamer --without-sdl --without-oss --with-gnutls --with-krb5 --with-gssapi)
 make -C "$build/wine-$abi" -j "$jobs"
 make -C "$build/wine-$abi" DESTDIR="$build/wine-install-$abi" install
+if [[ $abi == arm64-v8a ]]; then
+    "$OFFICEDROID_ROOT/scripts/build-fex.sh"
+    dlls="$build/wine-install-$abi/opt/officedroid/$abi/lib/wine/aarch64-windows"
+    cp "$build/fex-aarch64/Bin/libwow64fex.dll" "$dlls/"
+    cp "$build/fex-arm64ec/Bin/libarm64ecfex.dll" "$dlls/"
+fi
 "$ndkbin/llvm-readelf" --file-header "$build/wine-$abi/server/wineserver"
 echo "Wine $abi built; Android execution still requires APK integration and device tests."

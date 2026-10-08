@@ -28,6 +28,10 @@ if [[ $host == mac ]]; then
     install_archive https://dl.google.com/android/repository/commandlinetools-mac-13114758_latest.zip \
         c3e06a1959762e89167d1cbaa988605f6f7c1d24 "$sdk/cmdline-tools/19.0-tmp"
 else
+    if [[ $(dpkg-query -W -f='${db:Status-Status}' libpulse0 2>/dev/null || true) != installed ]]; then
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends libpulse0
+    fi
     install_archive https://dl.google.com/android/repository/emulator-linux_x64-16428233.zip \
         cd7362ea55dfb86a418958138dc396e74165dd01 "$sdk"
     install_archive https://dl.google.com/android/repository/platform-tools_r37.0.1-linux.zip \

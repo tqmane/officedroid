@@ -25,3 +25,15 @@ fetch https://download.microsoft.com/download/6c1eeb25-cf8b-41d9-8d0d-cc1dbc0321
 "$OFFICEDROID_TOOLS/7zip/7zzs" x -tCab "$odt" setup.exe EULA -o"$OFFICEDROID_ROOT/.build/office/odt" -y
 test -s "$OFFICEDROID_ROOT/.build/office/odt/setup.exe"
 file "$OFFICEDROID_ROOT/.build/office/odt/setup.exe"
+# Click-to-Run imports modern MSVC exception handlers absent from Wine's CRT.
+# Install Microsoft's complete redistributables in the prefix, never in the APK.
+fetch https://download.visualstudio.microsoft.com/download/pr/bd1c8d9d-ba95-4eee-bc6e-df1fcc876373/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe \
+    "$OFFICEDROID_TOOLS/downloads/office/vc-redist-x64.exe" \
+    cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b
+fetch https://download.visualstudio.microsoft.com/download/pr/bd1c8d9d-ba95-4eee-bc6e-df1fcc876373/0C09F2611660441084CE0DF425C51C11E147E6447963C3690F97E0B25C55ED64/VC_redist.x86.exe \
+    "$OFFICEDROID_TOOLS/downloads/office/vc-redist-x86.exe" \
+    0c09f2611660441084ce0df425c51c11e147e6447963c3690f97e0b25c55ed64
+for arch in x64 x86; do
+    cp "$OFFICEDROID_TOOLS/downloads/office/vc-redist-$arch.exe" \
+        "$OFFICEDROID_ROOT/.build/office/odt/vc_redist.$arch.exe"
+done

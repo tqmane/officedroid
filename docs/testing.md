@@ -225,8 +225,28 @@ returns 9002: Bionic's legacy `res_query` uses process-local resolver state
 without the system's configured nameservers. Patch 26 uses Android's public
 `android_res_nquery`/`android_res_nresult` API, which delegates to the system
 resolver, with a bounded wait and cancellation on timeout. It links the NDK's
-`libandroid` and preserves DNS response errors. Android validation is pending;
-Office installation was not attempted in the failed `0799ae4` run.
+`libandroid` and preserves DNS response errors. Office installation was not
+attempted in the failed `0799ae4` run.
+
+Run [37738721411](https://github.com/tqmane/officedroid/actions/runs/37738721411)
+at `7c76cad` passes all nine Android tests and both 32/64-bit Win32 GUI editing,
+saving and cold reopening. This verifies the system DNS fix. ODT now downloads
+and extracts its 33 MB Click-to-Run client and launches it. The client encounters
+a GL-context failure followed by repeated calls to Wine's unimplemented
+`vcruntime140.__C_specific_handler_noexcept`, ending in stack overflow. ODT waits
+for the client and times out after 30 minutes; no Office editor is verified.
+The next experiment installs pinned, official Visual C++ 14.44.35211 x64/x86
+redistributables before ODT, preferring their native CRT DLLs. Both installer
+exit codes must be 0 or 3010, followed by ODT success and all three edit tests.
+Downloads/staging are checksum-verified; Microsoft files remain outside APKs,
+Git and uploaded artifacts. Native CRT installation is not yet device-verified.
+
+Run [37741820750](https://github.com/tqmane/officedroid/actions/runs/37741820750)
+at `8a1da54` independently passes the nine tests and both GUI paths. Its separate
+runtime artifact uploads successfully before Office, and the retained emulator
+is available to the Office step. That installation was cancelled after the full
+`7c76cad` run established the CRT failure; final diagnostics/teardown succeeds.
+The Office edit step is skipped, not passed.
 
 Failures printed by WineDbg while attaching to WoW64 processes
 occur after installer timeout and do not establish a preceding Office crash.
@@ -238,8 +258,14 @@ the app. A failed system boot retains its XML, screenshot and logcat, then gets
 one reboot using its initialized system data; a second failure fails CI.
 Application tests and input events are never retried by this startup check.
 Standard run [37734925731](https://github.com/tqmane/officedroid/actions/runs/37734925731)
-at `441aece` passes, with a stable home screen on the first boot. The reboot
-recovery branch has not yet been exercised by CI.
+at `441aece` passes, with a stable home screen on the first boot.
+
+Standard run [37741820906](https://github.com/tqmane/officedroid/actions/runs/37741820906)
+at `8a1da54` exercises that recovery path but fails both boots before APK
+installation: System UI cannot complete startup. Logs show guest CPU pressure
+of 68–80%, with the graphics compositor and SurfaceFlinger dominating usage,
+while memory pressure is near zero. The emulator now uses up to four available
+host CPUs instead of fixing the guest at two; device validation is pending.
 
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;

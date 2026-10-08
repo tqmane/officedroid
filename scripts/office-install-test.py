@@ -74,11 +74,13 @@ def diagnose():
             match = re.fullmatch(r'([0-9a-fA-F]{8}) (\S+)', line)
             if match:
                 process = match.groups()
-            elif process and process[1].lower() in ('setup.exe', 'winedevice.exe'):
+            elif process and process[1].lower() in (
+                    'setup.exe', 'officeclicktorun.exe', 'officec2rclient.exe',
+                    'vc_redist.x64.exe', 'vc_redist.x86.exe', 'msiexec.exe', 'winedevice.exe'):
                 match = re.match(r'\s+([0-9a-fA-F]{8})\s', line)
                 if match:
                     targets.append((*process, match[1]))
-        targets.sort(key=lambda target: target[1] != 'setup.exe')
+        targets.sort(key=lambda target: (target[1].lower() == 'winedevice.exe', target[1].lower() == 'setup.exe'))
         if not targets:
             raise RuntimeError('WineDbg listed no installer/device threads')
         with (output / 'windows-stacks.txt').open('wb') as stacks:
@@ -98,14 +100,16 @@ def screen(name):
     return text
 
 
-result = {'office_version': '16.0.20430.20146', 'installer_passed': False}
+result = {'office_version': '16.0.20430.20146', 'visual_cpp_version': '14.44.35211', 'installer_passed': False}
 try:
     subprocess.run(['./scripts/prepare-office.sh'], check=True, timeout=180)
     adb('shell', 'am', 'force-stop', 'org.officedroid')
     directory = 'files/prefix/drive_c/office-setup'
     private('mkdir', '-p', directory + '/logs')
-    private('rm', '-f', directory + '/exit-code.txt')
+    private('rm', '-f', directory + '/exit-code.txt', directory + '/phase.txt',
+            directory + '/vcredist-x64-exit.txt', directory + '/vcredist-x86-exit.txt')
     for source in [Path('.build/office/odt/setup.exe'), Path('.build/office/odt/EULA'),
+                   Path('.build/office/odt/vc_redist.x64.exe'), Path('.build/office/odt/vc_redist.x86.exe'),
                    Path('runtime/office/configuration.xml'), Path('runtime/office/install-office.cmd')]:
         command = 'cat > ' + shlex.quote(directory + '/' + source.name)
         # exec-in quotes these arguments again and does not wait for remote exit.
@@ -123,11 +127,22 @@ try:
     deadline = time.monotonic() + args.timeout_seconds
     checkpoint = 0
     while time.monotonic() < deadline:
+        phase = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat', directory + '/phase.txt'],
+                               capture_output=True, timeout=15)
+        if phase.returncode == 0:
+            name = phase.stdout.decode().strip()
+            if name != result.get('phase'):
+                result['phase'] = name
+                print('Installation phase: ' + name, flush=True)
         completed = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat', directory + '/exit-code.txt'], capture_output=True, timeout=15)
         exit_code = completed.stdout.strip()
         if completed.returncode == 0 and exit_code:
             result['exit_code'] = int(exit_code)
-            assert result['exit_code'] == 0, f"ODT failed with exit code {result['exit_code']}"
+            assert result['exit_code'] == 0, f"{result.get('phase', 'Installation')} failed with exit code {result['exit_code']}"
+            for arch in ('x64', 'x86'):
+                code = int(private('cat', directory + '/vcredist-' + arch + '-exit.txt').strip())
+                result['visual_cpp_' + arch + '_exit_code'] = code
+                assert code in (0, 3010), f'Visual C++ {arch} installer failed: {code}'
             for exe in ['WINWORD.EXE', 'EXCEL.EXE', 'POWERPNT.EXE']:
                 private('test', '-s', 'files/prefix/drive_c/Program Files/Microsoft Office/root/Office16/' + exe)
             result['installer_passed'] = True
@@ -141,7 +156,7 @@ try:
             checkpoint = time.monotonic() + 60
         time.sleep(5)
     else:
-        raise TimeoutError(f'ODT did not finish within {args.timeout_seconds} seconds')
+        raise TimeoutError(f"{result.get('phase', 'Installation')} did not finish within {args.timeout_seconds} seconds")
 finally:
     screen('final')
     log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'], capture_output=True, timeout=20)

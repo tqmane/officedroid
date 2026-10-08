@@ -54,10 +54,13 @@ def visible_token(path, token):
     deadline = time.monotonic() + 180
     while time.monotonic() < deadline:
         words = screen(path)
-        for word in words:
-            if normalized(word['text']) == token:
-                return (int(word['left']) + int(word['width']) // 2,
-                        int(word['top']) + int(word['height']) // 2)
+        matches = [word for word in words if normalized(word['text']) == token]
+        if matches:
+            # Fixtures use large document text. Avoid the same text in Excel's
+            # smaller formula bar or PowerPoint's slide thumbnails.
+            word = max(matches, key=lambda item: int(item['width']) * int(item['height']))
+            return (int(word['left']) + int(word['width']) // 2,
+                    int(word['top']) + int(word['height']) // 2)
         time.sleep(3)
     raise AssertionError(f'{token} was not visible in the Office document; inspect screenshot')
 

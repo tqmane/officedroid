@@ -155,7 +155,9 @@ public final class WineRuntime {
         env.put("WINEDEBUG", "err+all,warn+winhttp,warn+secur32");
         env.put("OFFICEDROID_DEBUG_INIT", "1");
         // Do not prompt to download optional Mono/Gecko during a bounded smoke test.
-        env.put("WINEDLLOVERRIDES", "mscoree,mshtml=");
+        env.put("WINEDLLOVERRIDES", "mscoree,mshtml=;"
+                + "vcruntime140,vcruntime140_1,vcruntime140_threads,msvcp140,msvcp140_1,msvcp140_2,"
+                + "msvcp140_atomic_wait,msvcp140_codecvt_ids,concrt140=n,b");
         return env;
     }
     public static synchronized String run(Context context, int seconds, String... arguments) throws Exception {

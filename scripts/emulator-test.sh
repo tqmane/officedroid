@@ -31,8 +31,11 @@ if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
     accel=off
     boot_timeout=1800
 fi
+emulator_cores=$(nproc)
+((emulator_cores <= 4)) || emulator_cores=4
+echo "Emulator: $emulator_cores vCPUs, 3072 MiB RAM, acceleration $accel"
 emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data \
-    -gpu swiftshader_indirect -accel "$accel" -cores 2 -memory 3072 \
+    -gpu swiftshader_indirect -accel "$accel" -cores "$emulator_cores" -memory 3072 \
     > .build/emulator/emulator.log 2>&1 &
 emulator_pid=$!
 export ANDROID_SERIAL=emulator-5554

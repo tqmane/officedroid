@@ -6,7 +6,15 @@ cross-builds both Android ABIs, builds APK/test APK and runs Android lint.
 instrumentation and captures logcat, emulator output and a screenshot. CI keeps
 these plus Gradle reports. No test treats an absent emulator as a pass.
 
-After instrumentation, the emulator script reinstalls the APK and runs
+The Wine workflow exposes separate runtime, official Office installation and
+Office editing steps. It uploads `wine-android-runtime-checks` immediately after
+the runtime step, so its JUnit/GUI evidence is available while Office runs.
+After every runtime check passes, CI retains that emulator and shared prefix
+for the Office steps; an `always()` teardown captures diagnostics and stops it.
+The default local emulator command still runs all stages with exit-trap cleanup.
+
+After instrumentation, the emulator script retains the APK (installing it only
+if instrumentation removed it) and runs
 `scripts/launch-test.py`. It cold-starts all four launcher Activities using the
 MAIN/LAUNCHER intent, requires visible title/native-success text and the resumed
 Activity, and records a screenshot, UI XML and launch log for each. Wine builds

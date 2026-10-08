@@ -2,6 +2,10 @@
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 cd "$OFFICEDROID_ROOT"
+if [[ ${OFFICEDROID_KEEP_EMULATOR:-0} == 1 && -z ${GITHUB_ENV:-} ]]; then
+    echo 'Keeping the emulator requires GitHub Actions teardown steps.' >&2
+    exit 1
+fi
 mkdir -p .build/emulator "$ANDROID_AVD_HOME" "$HOME/.android"
 if timeout 10s adb devices | grep -q '^emulator-5554'; then
     echo 'emulator-5554 is already in use; leave the existing emulator untouched.' >&2
@@ -34,10 +38,7 @@ emulator_pid=$!
 export ANDROID_SERIAL=emulator-5554
 logcat_pid=
 cleanup() {
-    timeout 20s adb logcat -d -b main -b system -b crash -t 5000 > .build/emulator/logcat.txt 2>&1 || true
-    timeout 10s adb shell screencap -p /sdcard/officedroid.png >/dev/null 2>&1 && timeout 10s adb pull /sdcard/officedroid.png .build/emulator/screenshot.png >/dev/null 2>&1 || true
-    [[ -z $logcat_pid ]] || kill "$logcat_pid" 2>/dev/null || true
-    kill "$emulator_pid" 2>/dev/null || true
+    "$OFFICEDROID_ROOT/scripts/emulator-stop.sh" "$emulator_pid" "$logcat_pid"
 }
 trap cleanup EXIT
 for attempt in 1 2; do
@@ -90,7 +91,15 @@ if ((${#launch_args[@]})); then
     ((instrumentation_status == 0)) || exit "$instrumentation_status"
     ((gui_status == 0)) || exit "$gui_status"
     python3 scripts/wine-gui-test.py --wow64
-    python3 scripts/office-install-test.py --timeout-seconds "${OFFICE_INSTALL_TIMEOUT_SECONDS:-1800}"
-    python3 scripts/office-edit-test.py
+    if [[ ${OFFICEDROID_KEEP_EMULATOR:-0} == 1 ]]; then
+        # Subsequent CI steps use this tested prefix and expose each Office gate.
+        # Publish PIDs only after every runtime check passed; failures clean up here.
+        printf 'OFFICEDROID_EMULATOR_PID=%s\nOFFICEDROID_LOGCAT_PID=%s\n' \
+            "$emulator_pid" "$logcat_pid" >> "$GITHUB_ENV"
+        trap - EXIT
+    else
+        python3 scripts/office-install-test.py --timeout-seconds "${OFFICE_INSTALL_TIMEOUT_SECONDS:-1800}"
+        python3 scripts/office-edit-test.py
+    fi
 fi
 exit "$instrumentation_status"

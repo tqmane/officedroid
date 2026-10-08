@@ -86,12 +86,42 @@ jobs:
           else
             echo 'KVM is unavailable on this runner; testing with bounded software emulation.'
           fi
-      - name: Run Wine on Android 16
+      - name: Verify Wine networking and Win32 editing on Android 16
         if: matrix.abi == 'x86_64'
-        timeout-minutes: 65
+        timeout-minutes: 35
+        env:
+          OFFICEDROID_KEEP_EMULATOR: '1'
+        run: ./scripts/emulator-test.sh -PwineRuntime=true
+      - name: Upload runtime verification before Office installation
+        if: always() && matrix.abi == 'x86_64'
+        uses: actions/upload-artifact@v4
+        with:
+          name: wine-android-runtime-checks
+          include-hidden-files: true
+          path: |
+            .build/emulator/gui/
+            .build/emulator/gui-wow64/
+            .build/emulator/launch/
+            app/build/outputs/androidTest-results/
+      - name: Install official Microsoft 365 on Android
+        if: matrix.abi == 'x86_64'
+        timeout-minutes: 35
         env:
           OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '1800' }}
-        run: ./scripts/emulator-test.sh -PwineRuntime=true
+        run: |
+          source scripts/env.sh
+          export ANDROID_SERIAL=emulator-5554
+          python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS"
+      - name: Verify Word, Excel and PowerPoint editing, saving and cold reopening
+        if: matrix.abi == 'x86_64'
+        timeout-minutes: 20
+        run: |
+          source scripts/env.sh
+          export ANDROID_SERIAL=emulator-5554
+          python3 scripts/office-edit-test.py
+      - name: Collect Android diagnostics and stop the emulator
+        if: always() && matrix.abi == 'x86_64' && env.OFFICEDROID_EMULATOR_PID != ''
+        run: ./scripts/emulator-stop.sh "$OFFICEDROID_EMULATOR_PID" "$OFFICEDROID_LOGCAT_PID"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -60,8 +60,11 @@ instrumentation_status=0
 gradle --no-daemon :app:connectedDebugAndroidTest \
     -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true "$@" || instrumentation_status=$?
 # Keep the freshly tested prefix for GUI/Office, avoiding a second wineboot.
-# Reinstall defensively if instrumentation failed before installing the APK.
-timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
+# Reinstall only if instrumentation did not leave the APK installed. Updating
+# an installed APK changes nativeLibraryDir and forces runtime re-extraction.
+if ! adb shell pm path org.officedroid | grep -q '^package:'; then
+    timeout 120s adb install -r app/build/outputs/apk/debug/app-debug.apk
+fi
 launch_args=()
 for arg in "$@"; do
     [[ $arg != -PwineRuntime=true ]] || launch_args+=(--wine)

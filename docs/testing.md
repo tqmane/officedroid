@@ -123,6 +123,17 @@ The installer batch file also writes its exit code with the redirect before
 `echo`, avoiding interpretation of a numeric exit code as a file descriptor.
 Neither Office installation nor any Office editing screen has passed.
 
+Run [37718501288](https://github.com/tqmane/officedroid/actions/runs/37718501288)
+at `494508d` again passes all seven Android tests and full 64-bit editing.
+The 32-bit driver now initializes and requests its first application window,
+but stalls before its first position update. The driver's device I/O used an
+uninitialized `IO_STATUS_BLOCK.Pointer`, which ntdll treats as a pointer to the
+32-bit completion block in WoW64. The follow-up patch supplies that block and
+handles both immediate and pending completions; Android validation is pending.
+CI also avoids reinstalling an APK already retained by instrumentation, since
+that changes its native library directory and forces runtime re-extraction.
+Office installation and editing remain unverified.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

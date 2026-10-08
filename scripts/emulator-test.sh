@@ -40,22 +40,33 @@ cleanup() {
     kill "$emulator_pid" 2>/dev/null || true
 }
 trap cleanup EXIT
-deadline=$((SECONDS + ${EMULATOR_BOOT_TIMEOUT:-$boot_timeout}))
-while [[ $(timeout 5s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') != 1 ]]; do
-    kill -0 "$emulator_pid" || { tail -80 .build/emulator/emulator.log; exit 1; }
-    ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }
-    sleep 2
+for attempt in 1 2; do
+    deadline=$((SECONDS + ${EMULATOR_BOOT_TIMEOUT:-$boot_timeout}))
+    while [[ $(timeout 5s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') != 1 ]]; do
+        kill -0 "$emulator_pid" || { tail -80 .build/emulator/emulator.log; exit 1; }
+        ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }
+        sleep 2
+    done
+    adb shell wm size 2560x1600
+    adb shell wm density 240
+    adb shell settings put system accelerometer_rotation 0
+    adb shell settings put system user_rotation 0
+    adb shell wm dismiss-keyguard
+    if python3 scripts/emulator-ready.py ".build/emulator/boot-$attempt.xml"; then
+        break
+    fi
+    adb logcat -d > ".build/emulator/boot-$attempt-logcat.txt"
+    adb exec-out screencap -p > ".build/emulator/boot-$attempt.png"
+    ((attempt == 1)) || exit 1
+    # Retry only Android's initial setup, before any APK or application test.
+    # Retain the initialized system data; all application data is still fresh.
+    echo 'Android startup failed; recording evidence and rebooting once before APK installation.'
+    adb reboot
+    timeout 30s adb wait-for-disconnect
 done
 # Keep evidence even if the device disconnects during a graphics failure.
 adb logcat -v threadtime -b main -b system -b crash > .build/emulator/live-logcat.txt 2>&1 &
 logcat_pid=$!
-adb shell wm size 2560x1600
-adb shell wm density 240
-adb shell settings put system accelerometer_rotation 0
-adb shell settings put system user_rotation 0
-# Injecting MENU before the cold-boot launcher has a focused window causes a
-# Quickstep input-dispatch ANR. Dismiss the keyguard without sending input.
-adb shell wm dismiss-keyguard
 exec 8>.build/android-build.lock
 flock 8
 instrumentation_status=0

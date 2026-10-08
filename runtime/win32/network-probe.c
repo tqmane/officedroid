@@ -14,7 +14,7 @@ int main(void)
     IP_ADAPTER_INFO *info;
     IP_ADAPTER_ADDRESSES *adapters = NULL, *adapter;
     ULONG size = 16384, status;
-    unsigned int count = 0, addresses = 0;
+    unsigned int count = 0, addresses = 0, gateways = 0;
     setvbuf(stdout, NULL, _IONBF, 0);
     puts("GetIfTable2: begin");
     status = GetIfTable2(&table);
@@ -50,12 +50,14 @@ int main(void)
     count = 0;
     for (adapter = adapters; adapter; adapter = adapter->Next) {
         IP_ADAPTER_UNICAST_ADDRESS *address;
+        IP_ADAPTER_GATEWAY_ADDRESS *gateway;
         ++count;
         for (address = adapter->FirstUnicastAddress; address; address = address->Next) ++addresses;
+        for (gateway = adapter->FirstGatewayAddress; gateway; gateway = gateway->Next) ++gateways;
     }
     free(adapters);
-    printf("Adapter count=%u unicast addresses=%u\n", count, addresses);
-    if (!count || !addresses) return 1;
+    printf("Adapter count=%u unicast addresses=%u gateways=%u\n", count, addresses, gateways);
+    if (!count || !addresses || !gateways) return 1;
     puts("NETWORK_ENUM_OK");
     return 0;
 }

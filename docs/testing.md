@@ -188,9 +188,28 @@ enumeration returns, but the next never does. Android's Bionic `if_nameindex`
 uses restricted `RTM_GETLINK`; Wine dereferences its NULL result under
 `if_list_lock`, and its Unix-call fault recovery skips the mutex unlock.
 Patch 23 uses Bionic's application-compatible `getifaddrs` path on Android and
-checks `if_nameindex` failure elsewhere. Android verification is pending.
+checks `if_nameindex` failure elsewhere.
 New native/WoW64 instrumented probes require `GetIfTable2`, `GetAdaptersInfo`
 and `GetAdaptersAddresses` to return real interfaces and unicast addresses.
+
+Run [37733239683](https://github.com/tqmane/officedroid/actions/runs/37733239683)
+at `f7f0d7f` verifies that patch 23 removes the enumeration hang: native and
+WoW64 `GetIfTable2` both return success and four interfaces. The next API,
+`GetAdaptersInfo`, returns error 50 because Wine reads Android's restricted
+`/proc/net/route`. These two regression tests fail; the existing seven tests
+and 64-bit GUI editing pass. The failed gate prevents this run from reaching
+the Office installer. Patch 24 retrieves actual IPv4/IPv6 routes through a
+bounded `RTM_GETROUTE` request, without a multicast bind or elevated privileges.
+The probe also requires real gateway entries. This route fix awaits Android
+validation. Failures printed by WineDbg while attaching to WoW64 processes
+occur after installer timeout and do not establish a preceding Office crash.
+
+The standard run at `f7f0d7f` reveals a separate Android System UI startup ANR,
+before APK installation. A completed boot property alone is insufficient.
+The emulator now requires a stable, visible AOSP home screen before installing
+the app. A failed system boot retains its XML, screenshot and logcat, then gets
+one reboot using its initialized system data; a second failure fails CI.
+Application tests and input events are never retried by this startup check.
 
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;

@@ -1,0 +1,30 @@
+name: ARM64 Android host inventory
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/native-build-foundation]
+    paths:
+      - '.github/workflows/android-arm64.yml'
+      - 'scripts/android-arm64-host-check.py'
+permissions:
+  contents: read
+jobs:
+  host:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check ARM64 virtualization support
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+          python3 scripts/android-arm64-host-check.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: arm64-host-${{ matrix.runner }}
+          include-hidden-files: true
+          path: .build/arm64-host/

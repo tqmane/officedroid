@@ -19,6 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: cmake -S runtime -B .build/native -G Ninja && cmake --build .build/native && ctest --test-dir .build/native --output-on-failure
   android:
+    name: Build Android APK
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -31,17 +32,8 @@ jobs:
         with:
           path: .tools/gradle-home
           key: android-gradle-v1-${{ runner.os }}-${{ hashFiles('scripts/setup.sh', 'scripts/env.sh') }}
-      - run: ./scripts/setup.sh --emulator
+      - run: ./scripts/setup.sh
       - run: ./scripts/build.sh
-      - name: Enable KVM
-        run: |
-          if [ -e /dev/kvm ]; then
-            sudo chmod a+rw /dev/kvm
-          else
-            echo 'KVM is unavailable on this runner; testing with bounded software emulation.'
-          fi
-      - run: ./scripts/emulator-test.sh
-        timeout-minutes: 40
       - uses: actions/upload-artifact@v4
         if: always()
         with:

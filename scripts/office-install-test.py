@@ -103,13 +103,13 @@ def screen(name):
 
 result = {'office_version': '16.0.20430.20146', 'visual_cpp_version': '14.44.35211',
           'source': args.source, 'installer_passed': False}
+directory = 'files/prefix/drive_c/office-setup'
 try:
     prepare = ['./scripts/prepare-office.sh']
     if args.source == 'media':
         prepare.append('--media')
     subprocess.run(prepare, check=True, timeout=900 if args.source == 'media' else 180)
     adb('shell', 'am', 'force-stop', 'org.officedroid')
-    directory = 'files/prefix/drive_c/office-setup'
     private('mkdir', '-p', directory + '/logs')
     private('rm', '-f', directory + '/exit-code.txt', directory + '/phase.txt',
             directory + '/vcredist-x64-exit.txt', directory + '/vcredist-x86-exit.txt')
@@ -187,7 +187,12 @@ try:
         time.sleep(5)
     else:
         raise TimeoutError(f"{result.get('phase', 'Installation')} did not finish within {args.timeout_seconds} seconds")
+except Exception as error:
+    result['error'] = f'{type(error).__name__}: {error}'
+    raise
 finally:
+    # Preserve the primary outcome even if ADB or a later diagnostic capture fails.
+    (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     screen('final')
     log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'], capture_output=True, timeout=20)
     (output / 'wine-gui.log').write_bytes(log.stdout + log.stderr)

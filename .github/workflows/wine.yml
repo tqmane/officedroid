@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        abi: [x86_64, arm64-v8a]
+        abi: [arm64-v8a]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:

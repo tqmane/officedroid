@@ -8,7 +8,7 @@ if timeout 10s adb devices | grep -q '^emulator-5554'; then
     exit 1
 fi
 if ! avdmanager list avd -c | grep -qx officedroid-tablet; then
-    printf 'no\n' | avdmanager create avd --name officedroid-tablet \
+    avdmanager create avd --name officedroid-tablet --device medium_tablet \
         --package 'system-images;android-36;google_apis;x86_64'
 fi
 # Microsoft 365 needs room for both its download cache and installed files.
@@ -16,8 +16,10 @@ python3 - "$ANDROID_AVD_HOME/officedroid-tablet.avd/config.ini" <<'PYCONFIG'
 from pathlib import Path
 import sys
 config = Path(sys.argv[1])
-lines = [line for line in config.read_text().splitlines() if not line.startswith('disk.dataPartition.size')]
-config.write_text('\n'.join(lines + ['disk.dataPartition.size = 17179869184']) + '\n')
+lines = [line for line in config.read_text().splitlines()
+         if not line.startswith(('disk.dataPartition.size', 'hw.initialOrientation'))]
+config.write_text('\n'.join(lines + ['disk.dataPartition.size = 17179869184',
+                                   'hw.initialOrientation = landscape']) + '\n')
 PYCONFIG
 accel=auto
 boot_timeout=600

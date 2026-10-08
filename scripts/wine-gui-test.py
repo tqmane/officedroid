@@ -82,8 +82,13 @@ try:
     adb('shell', 'run-as', 'org.officedroid', 'rm', '-f', 'files/prefix/drive_c/gui-smoke.txt')
     window = open_editor()
     deadline = time.monotonic() + 30
-    while 'NOTEPAD' not in capture('opened'):
-        assert time.monotonic() < deadline, 'Win32 window must paint its title before keyboard tests'
+    while True:
+        rendered = capture('opened')
+        # Tesseract misses black title text on Wine's blue active title bar.
+        # Its complete, distinctive menu is also actual rendered Win32 content.
+        if 'NOTEPAD' in rendered or 'FILEEDITFORMATVIEWHELP' in rendered:
+            break
+        assert time.monotonic() < deadline, 'Win32 editor must visibly paint before keyboard tests'
         time.sleep(2)
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A

@@ -60,45 +60,33 @@ outputs are cached before device testing, so runtime fixes can reuse compilation
 
 ## GUI and Office validation in progress
 
-The initial GUI run at `88129c5` failed with `wait_events` asserting before
-Android's desktop event queue was initialized. This is a Wine driver failure;
-the successful diagnostic launcher checks do not validate Windows editing.
-Patch 0012 defers event polling until the desktop window and Android device exist.
-The next run (`1d5e1c3`, PR run 37695199517) passed the six baseline tests but
-still had no GUI: a bare `explorer.exe` name caused the JNI process to run
-`start.exe`, launching Explorer in another process without the JVM. The argument
-`notepad.exe C:\gui-smoke.txt` was also treated as one executable filename.
-The launcher now uses Explorer's absolute Windows path and separate arguments,
-and preloads its native dependencies in Android's class-loader namespace.
-Run [37699626409](https://github.com/tqmane/officedroid/actions/runs/37699626409)
-at `37bee12` confirms that the JVM desktop callback now runs and Notepad creates
-Win32 windows, but the Android screen remains blank. All surface requests fail
-with `ENOENT`: the driver passes a Win32 `\\.\WineAndroid` path to `NtCreateFile`,
-which requires the registered NT `\??\WineAndroid` path. Patch 0014 fixes this
-and opens the device synchronously so output buffers remain valid until completion.
-The corrected native build, APK and lint pass locally; device validation is running.
+Run [37708167076](https://github.com/tqmane/officedroid/actions/runs/37708167076)
+at `ab3bb95` passes all seven Android instrumented tests, including validated
+HTTPS through WinHTTP, a 64-bit Windows command and a 32-bit WoW64 command.
+The GUI test still fails: Notepad creates a window but the captured screen is
+blank. Microsoft Office installation and editing have not run.
 
-The x86_64 runtime now builds both x86_64 and i386 PE modules. Instrumentation
-requires the 32-bit `syswow64/cmd.exe` to write a real file before ODT is attempted.
-GMP 6.3.0, Nettle 3.10.2 and GnuTLS 3.8.13 cross-build locally for both Android
-ABIs. The x86_64 Wine configure detects GnuTLS and its APK/lint build passes.
-The WinHTTP process exited zero in that run, but its success marker was absent
-from the first 64 KiB of its startup log. The assertion failed, so HTTPS is not
-reported as verified. Command results now retain the final 64 KiB and reduce
-irrelevant warning output. The device runner logged completion of the 32-bit
-command test, but failed to deliver its final instrumentation result; this also
-requires a clean rerun rather than counting as a passed CI test.
+Tracked Wine patches fix desktop initialization, the JNI launch process,
+Android's NT device path, executable mappings, APK runtime paths and certificate
+roots. The modern CPU surface bridge uses a Wine shared section and public
+`ANativeWindow_lock` / `ANativeWindow_unlockAndPost` calls. Explicit CPU buffer
+usage fixes the Android 16 mapper failure. In the run above, both native calls
+return zero and source pixels contain the desktop and window colors, but this
+does not prove that Android displays them. The GUI gate requires visible title
+text before keyboard tests and continues to fail when presentation is blank.
+Run [37709799661](https://github.com/tqmane/officedroid/actions/runs/37709799661)
+at `dd31d8c` fixes presentation using public RGBA buffers. Its screenshot shows
+the actual Notepad title, menus and editor on the Wine desktop, and TextureView
+reports frame updates. All seven instrumented tests pass. The GUI assertion
+still fails because Tesseract omits the title text on the blue title bar while
+correctly reading the complete menu. The test now accepts either the title or
+Notepad's complete menu as rendering evidence. Input, persistence and Office
+still require subsequent device verification.
 
-Run [37701859586](https://github.com/tqmane/officedroid/actions/runs/37701859586)
-at `d7c1f70` passes all seven instrumented tests, including HTTPS certificate
-validation and both Windows command architectures. Patch 0014 also creates
-Android TextureViews and delivers keyboard events, but the screenshot is still
-blank: the legacy gralloc module rejects modern graphics handles with `EINVAL`.
-Patch 0015 transfers a Wine CPU section to the JVM process and presents it using
-public `ANativeWindow_lock` / `ANativeWindow_unlockAndPost` APIs. Patch 0016 fixes
-an extra virtual-key table entry that shifted Ctrl and Shift scan codes.
-These GUI changes require a new device run. TextureView existence alone is not
-rendering proof; the test now also requires visible Notepad title text before input.
+Continuous Android logs are retained while the emulator runs, including when a
+later ADB capture fails. Read-only captures can retry a transient offline device;
+keyboard and touch events are never replayed. The AVD uses an explicit tablet
+hardware profile so creation does not depend on an interactive prompt.
 
 The GUI test requires visibly rendered keyboard input, copy/paste, undo, a saved
 file and a cold restart displaying the saved content. It removes its previous

@@ -210,7 +210,15 @@ Patch 25 implements the DNS Unix calls with Bionic queries and the active
 network's actual LinkProperties, supplied by the Android launcher. It also
 initializes the DNS buffer size in iphlpapi. Probes require DNS server entries
 and a successful `DnsQuery_A` for Microsoft's configuration host; Android
-validation of this fix is pending.
+run [37736901201](https://github.com/tqmane/officedroid/actions/runs/37736901201)
+at `0799ae4` verifies `GetAdaptersAddresses` succeeds for both callers, with four interfaces, ten
+unicast addresses, four gateways and four DNS-server entries. `DnsQuery_A`
+returns 9002: Bionic's legacy `res_query` uses process-local resolver state
+without the system's configured nameservers. Patch 26 uses Android's public
+`android_res_nquery`/`android_res_nresult` API, which delegates to the system
+resolver, with a bounded wait and cancellation on timeout. It links the NDK's
+`libandroid` and preserves DNS response errors. Android validation is pending;
+Office installation was not attempted in the failed `0799ae4` run.
 
 Failures printed by WineDbg while attaching to WoW64 processes
 occur after installer timeout and do not establish a preceding Office crash.

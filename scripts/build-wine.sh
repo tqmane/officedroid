@@ -68,6 +68,7 @@ cmake --install "$build/freetype-$abi"
         AR="$ndkbin/llvm-ar" RANLIB="$ndkbin/llvm-ranlib" \
         STRIP="$ndkbin/llvm-strip" \
         PKG_CONFIG=pkg-config PKG_CONFIG_LIBDIR="$deps/lib/pkgconfig" \
+        RESOLV_LIBS=-landroid \
         CFLAGS='-O2 -g' LDFLAGS='-Wl,-z,max-page-size=16384' \
         "$source_dir/configure" --build="$(gcc -dumpmachine)" --host="$target" --enable-win64 --enable-archs="$pe" --disable-tests \
         --with-wine-tools="$build/wine-host" --prefix=/opt/officedroid \

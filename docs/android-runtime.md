@@ -23,6 +23,7 @@ namespace and background restrictions. A Wine integration needs to handle:
 
 INTERNET enables Wine networking; ACCESS_NETWORK_STATE reads the active network's
 DNS servers and search domains through Android LinkProperties. Wine's DNS queries
-use Bionic's resolver, preserving Android's network selection. There is no external-storage,
+use the public Android resolver API, preserving Android's network selection.
+There is no external-storage,
 microphone, root or system-modification requirement. Document provider access must
 use per-URI grants. No access to a supplied URI is currently attempted.

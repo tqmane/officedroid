@@ -151,7 +151,13 @@ try:
         if time.monotonic() >= checkpoint:
             text = screen('progress-' + str(int(time.monotonic())))
             print('Office installer screenshot and OCR captured', flush=True)
-            if re.search(r"couldn't install|can't install|error code|not supported", text, re.I):
+            # Distinguish slow content extraction from an idle installation.
+            # Keep only size metadata; Office binaries stay inside the emulator.
+            usage = private('du', '-sk', 'files/prefix/drive_c', timeout=60).decode().strip()
+            with (output / 'disk-usage.txt').open('a') as history:
+                history.write(f'{int(time.monotonic())}: {usage}\n')
+            print('Office prefix disk usage (KiB): ' + usage, flush=True)
+            if re.search(r"couldn't install|can't install|error code|not supported|program error|serious problem", text, re.I):
                 raise RuntimeError('Office reported an installation error; see captured screen and logs')
             checkpoint = time.monotonic() + 60
         time.sleep(5)
@@ -164,6 +170,13 @@ finally:
     files = private('find', 'files/prefix/drive_c/office-setup/logs', 'cache/wine', 'files/prefix/drive_c/users', '-type', 'f', '-name', '*.log').decode().splitlines()
     for index, filename in enumerate(files):
         (output / f'installer-{index}.log').write_bytes(private('cat', filename))
+    (output / 'installer-log-paths.json').write_text(json.dumps(files, indent=2) + '\n')
+    for arch in ('x64', 'x86'):
+        status = subprocess.run(['adb', 'shell', '-T', 'run-as', 'org.officedroid', 'cat',
+                                 directory + '/vcredist-' + arch + '-exit.txt'],
+                                capture_output=True, timeout=15)
+        if status.returncode == 0 and status.stdout.strip():
+            result['visual_cpp_' + arch + '_exit_code'] = int(status.stdout.strip())
     (output / 'result.json').write_text(json.dumps(result, indent=2) + '\n')
     if not result['installer_passed']:
         try:

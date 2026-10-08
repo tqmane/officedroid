@@ -235,11 +235,19 @@ and extracts its 33 MB Click-to-Run client and launches it. The client encounter
 a GL-context failure followed by repeated calls to Wine's unimplemented
 `vcruntime140.__C_specific_handler_noexcept`, ending in stack overflow. ODT waits
 for the client and times out after 30 minutes; no Office editor is verified.
-The next experiment installs pinned, official Visual C++ 14.44.35211 x64/x86
+The subsequent experiment installs pinned, official Visual C++ 14.44.35211 x64/x86
 redistributables before ODT, preferring their native CRT DLLs. Both installer
 exit codes must be 0 or 3010, followed by ODT success and all three edit tests.
 Downloads/staging are checksum-verified; Microsoft files remain outside APKs,
-Git and uploaded artifacts. Native CRT installation is not yet device-verified.
+Git and uploaded artifacts. Run `37746093034` at `a0597e1` verifies both official
+redistributable installers exit 0 and C2R loads native MSVC DLLs. The missing
+handler and stack overflow disappear, but OfficeC2RClient still fails after
+repeated Direct3D GL-context failures and displays a Wine program-error dialog.
+Office installation times out at the diagnostic 300-second limit; no editor runs.
+ODT now uses its supported `Display Level="None"` unattended mode to avoid the
+installer's graphical client. This does not waive the three graphical editing
+gates. Installation captures prefix disk usage, individual runtime exit codes
+and installer-log paths; HTTP tracing also covers the C2R service environment.
 
 Run [37741820750](https://github.com/tqmane/officedroid/actions/runs/37741820750)
 at `8a1da54` independently passes the nine tests and both GUI paths. Its separate
@@ -264,8 +272,15 @@ Standard run [37741820906](https://github.com/tqmane/officedroid/actions/runs/37
 at `8a1da54` exercises that recovery path but fails both boots before APK
 installation: System UI cannot complete startup. Logs show guest CPU pressure
 of 68–80%, with the graphics compositor and SurfaceFlinger dominating usage,
-while memory pressure is near zero. The emulator now uses up to four available
-host CPUs instead of fixing the guest at two; device validation is pending.
+while memory pressure is near zero. Using up to four available host CPUs alone
+does not fix startup: both `cda0e0f` runs fail before APK installation.
+`a0597e1` boots at 1280x800 with the supported SwiftShader renderer option,
+checks home-screen stability, switches to 2560x1600, and checks stability again.
+Standard run [37746096289](https://github.com/tqmane/officedroid/actions/runs/37746096289)
+passes without a recovery reboot. Wine run
+[37746093034](https://github.com/tqmane/officedroid/actions/runs/37746093034)
+also passes all nine instrumented tests and both Win32 GUI editing paths;
+both redistributables install, while Office fails as described above.
 
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;

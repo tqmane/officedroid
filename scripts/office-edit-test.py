@@ -27,7 +27,7 @@ def normalized(text):
 def screen(path):
     image = path.with_suffix('.png')
     image.write_bytes(adb('exec-out', 'screencap', '-p'))
-    tsv = subprocess.check_output(['tesseract', str(image), 'stdout', 'tsv'], timeout=30).decode()
+    tsv = subprocess.check_output(['tesseract', str(image), 'stdout', '--psm', '11', 'tsv'], timeout=30).decode()
     path.with_suffix('.tsv').write_text(tsv)
     return list(csv.DictReader(io.StringIO(tsv), delimiter='\t'))
 

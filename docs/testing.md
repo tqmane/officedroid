@@ -83,6 +83,15 @@ correctly reading the complete menu. The test now accepts either the title or
 Notepad's complete menu as rendering evidence. Input, persistence and Office
 still require subsequent device verification.
 
+Run [37711565331](https://github.com/tqmane/officedroid/actions/runs/37711565331)
+at `aab980d` reaches keyboard input. The first capture occurs while Wine is still
+processing the queued keys; its final screenshot visibly contains
+`OFFICEDROIDGUI`. Default OCR misses the small editor text, while sparse-text
+segmentation reads it correctly from that same screenshot. GUI assertions now
+poll rendered content for up to 30 seconds instead of assuming a one-second
+rendering delay, and GUI/Office OCR uses sparse-text segmentation. Copy/paste,
+save/reopen and Office still require a passing run.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

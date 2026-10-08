@@ -71,9 +71,16 @@ def capture(name):
         (output / (name + '-log-error.txt')).write_text(str(error))
     screenshot = output / (name + '.png')
     screenshot.write_bytes(adb('exec-out', 'screencap', '-p'))
-    text = subprocess.check_output(['tesseract', str(screenshot), 'stdout'], timeout=30).decode()
+    text = subprocess.check_output(['tesseract', str(screenshot), 'stdout', '--psm', '11'], timeout=30).decode()
     (output / (name + '-ocr.txt')).write_text(text)
     return re.sub(r'[^A-Z0-9]', '', text.upper())
+
+
+def wait_for_text(name, token, count=1):
+    deadline = time.monotonic() + 30
+    while capture(name).count(token) < count:
+        assert time.monotonic() < deadline, f'{name}: expected {count} visible occurrence(s) of {token}'
+        time.sleep(1)
 
 
 try:
@@ -93,15 +100,13 @@ try:
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
     adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
-    time.sleep(1)
-    assert 'OFFICEDROIDGUI' in capture('typed'), 'Keyboard input must visibly appear in the document'
+    wait_for_text('typed', 'OFFICEDROIDGUI')
     adb('shell', 'input', 'keycombination', '113', '29')  # Select text
     adb('shell', 'input', 'keycombination', '113', '31')  # Ctrl+C
     adb('shell', 'input', 'keyevent', '123')  # End
     adb('shell', 'input', 'keyevent', '66')  # Enter
     adb('shell', 'input', 'keycombination', '113', '50')  # Ctrl+V
-    time.sleep(1)
-    assert capture('pasted').count('OFFICEDROIDGUI') >= 2, 'Copy/paste must visibly duplicate the text'
+    wait_for_text('pasted', 'OFFICEDROIDGUI', count=2)
     adb('shell', 'input', 'keycombination', '113', '54')  # Ctrl+Z
     adb('shell', 'input', 'keycombination', '113', '47')  # Ctrl+S
     deadline = time.monotonic() + 30
@@ -114,10 +119,9 @@ try:
         time.sleep(1)
     else:
         raise RuntimeError('Android keyboard input and Ctrl+S did not persist the document')
-    assert 'OFFICEDROIDGUI' in capture('edited'), 'Saved input must also be visibly rendered'
+    wait_for_text('edited', 'OFFICEDROIDGUI')
     open_editor()
-    time.sleep(2)
-    assert 'OFFICEDROIDGUI' in capture('reopened'), 'Reopened document must visibly contain the saved input'
+    wait_for_text('reopened', 'OFFICEDROIDGUI')
     print('PASS: Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
 finally:
     for name, command in [('wine-gui.log', ['run-as', 'org.officedroid', 'tail', '-c', '65536', 'files/wine-gui.log']),

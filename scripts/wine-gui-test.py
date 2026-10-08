@@ -54,13 +54,13 @@ def open_editor():
 
 
 def capture(name):
+    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
+                         capture_output=True, timeout=20)
+    (output / (name + '-wine.log')).write_bytes(log.stdout + log.stderr)
     screenshot = output / (name + '.png')
     screenshot.write_bytes(adb('exec-out', 'screencap', '-p'))
     text = subprocess.check_output(['tesseract', str(screenshot), 'stdout'], timeout=30).decode()
     (output / (name + '-ocr.txt')).write_text(text)
-    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
-                         capture_output=True, timeout=20)
-    (output / (name + '-wine.log')).write_bytes(log.stdout + log.stderr)
     return re.sub(r'[^A-Z0-9]', '', text.upper())
 
 
@@ -69,8 +69,10 @@ try:
     adb('shell', 'am', 'force-stop', 'org.officedroid')
     adb('shell', 'run-as', 'org.officedroid', 'rm', '-f', 'files/prefix/drive_c/gui-smoke.txt')
     window = open_editor()
-    time.sleep(2)
-    assert 'NOTEPAD' in capture('opened'), 'Win32 window must paint its title before keyboard tests'
+    deadline = time.monotonic() + 30
+    while 'NOTEPAD' not in capture('opened'):
+        assert time.monotonic() < deadline, 'Win32 window must paint its title before keyboard tests'
+        time.sleep(2)
     adb('shell', 'input', 'tap', str(window[0] + 120), str(window[1] + 120))
     adb('shell', 'input', 'keycombination', '113', '29')  # Ctrl+A
     adb('shell', 'input', 'text', 'OFFICEDROIDGUI')
@@ -101,7 +103,10 @@ try:
     assert 'OFFICEDROIDGUI' in capture('reopened'), 'Reopened document must visibly contain the saved input'
     print('PASS: Win32 editor displayed Android input, saved it, and reopened the document', flush=True)
 finally:
-    (output / 'screen.png').write_bytes(adb('exec-out', 'screencap', '-p'))
-    log = subprocess.run(['adb', 'exec-out', 'run-as', 'org.officedroid', 'cat', 'files/wine-gui.log'],
-                         capture_output=True, timeout=20)
-    (output / 'wine-gui.log').write_bytes(log.stdout + log.stderr)
+    for name, command in [('wine-gui.log', ['run-as', 'org.officedroid', 'cat', 'files/wine-gui.log']),
+                          ('screen.png', ['screencap', '-p'])]:
+        try:
+            data = adb('exec-out', *command)
+            (output / name).write_bytes(data)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+            print(f'Could not collect {name}: {error}', flush=True)

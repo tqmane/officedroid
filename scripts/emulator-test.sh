@@ -30,9 +30,11 @@ emulator -avd officedroid-tablet -port 5554 -no-window -no-audio -no-boot-anim -
     > .build/emulator/emulator.log 2>&1 &
 emulator_pid=$!
 export ANDROID_SERIAL=emulator-5554
+logcat_pid=
 cleanup() {
-    timeout 10s adb logcat -d > .build/emulator/logcat.txt 2>&1 || true
+    timeout 20s adb logcat -d -b main -b system -b crash -t 5000 > .build/emulator/logcat.txt 2>&1 || true
     timeout 10s adb shell screencap -p /sdcard/officedroid.png >/dev/null 2>&1 && timeout 10s adb pull /sdcard/officedroid.png .build/emulator/screenshot.png >/dev/null 2>&1 || true
+    [[ -z $logcat_pid ]] || kill "$logcat_pid" 2>/dev/null || true
     kill "$emulator_pid" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -42,6 +44,9 @@ while [[ $(timeout 5s adb shell getprop sys.boot_completed 2>/dev/null | tr -d '
     ((SECONDS < deadline)) || { echo 'Emulator boot timeout' >&2; exit 1; }
     sleep 2
 done
+# Keep evidence even if the device disconnects during a graphics failure.
+adb logcat -v threadtime -b main -b system -b crash > .build/emulator/live-logcat.txt 2>&1 &
+logcat_pid=$!
 adb shell wm size 2560x1600
 adb shell wm density 240
 adb shell settings put system accelerometer_rotation 0

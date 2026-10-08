@@ -7,10 +7,10 @@ if timeout 10s adb devices | grep -q '^emulator-5554'; then
     echo 'emulator-5554 is already in use; leave the existing emulator untouched.' >&2
     exit 1
 fi
-if ! avdmanager list avd -c | grep -qx officedroid-tablet; then
-    avdmanager create avd --name officedroid-tablet --device medium_tablet \
-        --package 'system-images;android-36;google_apis;x86_64'
-fi
+# This dedicated AVD is wiped on every run. Recreate its configuration as well
+# so a previous Google APIs image cannot survive a switch to the AOSP image.
+avdmanager create avd --force --name officedroid-tablet --device medium_tablet \
+    --package 'system-images;android-36;default;x86_64'
 # Microsoft 365 needs room for both its download cache and installed files.
 python3 - "$ANDROID_AVD_HOME/officedroid-tablet.avd/config.ini" <<'PYCONFIG'
 from pathlib import Path

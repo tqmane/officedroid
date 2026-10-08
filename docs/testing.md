@@ -134,6 +134,15 @@ CI also avoids reinstalling an APK already retained by instrumentation, since
 that changes its native library directory and forces runtime re-extraction.
 Office installation and editing remain unverified.
 
+Run [37720737990](https://github.com/tqmane/officedroid/actions/runs/37720737990)
+at `b146773` passes all seven instrumented tests but is blocked before the GUI
+tests by a system dialog: Pixel Launcher's notification service has an ANR.
+The screenshot shows OfficeDroid's successful native probe behind that dialog.
+The WoW64 I/O fix therefore remains untested on Android. CI now uses Google's
+official Android 16 AOSP (`default;x86_64`) system image, without the Google
+apps background services, and recreates its dedicated tablet AVD configuration.
+OfficeDroid's UI checks and all editing assertions remain required.
+
 Continuous Android logs are retained while the emulator runs, including when a
 later ADB capture fails. Read-only captures can retry a transient offline device;
 keyboard and touch events are never replayed. The AVD uses an explicit tablet

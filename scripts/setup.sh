@@ -89,7 +89,7 @@ set -o pipefail
 ((status == 0)) || exit "$status"
 python3 "$OFFICEDROID_ROOT/scripts/sdkmanager.py" --sdk_root="$ANDROID_HOME" 'platform-tools' 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
 if $emulator; then
-    python3 "$OFFICEDROID_ROOT/scripts/sdkmanager.py" --sdk_root="$ANDROID_HOME" 'emulator' 'system-images;android-36;google_apis;x86_64'
+    python3 "$OFFICEDROID_ROOT/scripts/sdkmanager.py" --sdk_root="$ANDROID_HOME" 'emulator' 'system-images;android-36;default;x86_64'
 fi
 if $wine && [[ ! -x $OFFICEDROID_TOOLS/llvm-mingw/bin/x86_64-w64-mingw32-clang ]]; then
     archive="$OFFICEDROID_TOOLS/downloads/llvm-mingw-20250709.tar.xz"

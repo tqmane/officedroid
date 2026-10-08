@@ -2,11 +2,15 @@
 # Fetch Microsoft's ODT for local/device experiments. Never package these files in an APK.
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
+[[ $# == 0 || ( $# == 1 && $1 == --media ) ]] || {
+    echo 'Usage: prepare-office.sh [--media]' >&2
+    exit 2
+}
 mkdir -p "$OFFICEDROID_TOOLS/downloads/office" "$OFFICEDROID_ROOT/.build/office"
 fetch() {
     local url=$1 file=$2 sha=$3
     if [[ ! -f $file ]] || ! printf '%s  %s\n' "$sha" "$file" | sha256sum --check --status; then
-        curl --fail --location --retry 3 --show-error "$url" -o "$file.part"
+        curl --fail --location --retry 3 --retry-all-errors --show-error "$url" -o "$file.part"
         printf '%s  %s\n' "$sha" "$file.part" | sha256sum --check
         mv "$file.part" "$file"
     fi
@@ -37,3 +41,45 @@ for arch in x64 x86; do
     cp "$OFFICEDROID_TOOLS/downloads/office/vc-redist-$arch.exe" \
         "$OFFICEDROID_ROOT/.build/office/odt/vc_redist.$arch.exe"
 done
+if [[ ${1:-} == --media ]]; then
+    # Prepare Microsoft's normal Office/Data source layout for offline ODT.
+    # Symlinks avoid duplicating the 3.3 GB cache in this host workspace.
+    version=16.0.20430.20146
+    base=https://officecdn.microsoft.com/pr/492350f6-3a01-4f97-b9c0-c7c6ddf67d60/Office/Data
+    cache="$OFFICEDROID_TOOLS/downloads/office"
+    media="$OFFICEDROID_ROOT/.build/office/media/Office/Data"
+    mkdir -p "$media/$version"
+    fetch "$base/v64_$version.cab" "$cache/v64_$version.cab" \
+        9b6b9abad01baf204385b1b907b086c07f390b95377350cac7a90ed44ca19eae
+    ln -sfn "$cache/v64_$version.cab" "$media/v64_$version.cab"
+    ln -sfn "$cache/v64_$version.cab" "$media/v64.cab"
+    while read -r name sha; do
+        fetch "$base/$version/$name" "$cache/$name" "$sha"
+        ln -sfn "$cache/$name" "$media/$version/$name"
+    done <<'CAB_HASHES'
+i640.cab b3b985aa9df5181244abadee856ae369bcc2516ab2a93afa5f1112f72b60259c
+i641033.cab b2fc7ba21559ddcdbd11e5ed7afb152980223916aae096fc6d19f4c160387bae
+s640.cab dac554dbd741d71e3b488449afef445cd8015816dabc59524258426356ee7077
+s641033.cab d73a721f7c5eac3449b507137f9560778b8c94d137ef7b11b9e361f36bc9e010
+CAB_HASHES
+    for culture in x-none en-us; do
+        cab=s640.cab
+        [[ $culture != en-us ]] || cab=s641033.cab
+        name="stream.x64.$culture"
+        # Each pinned Microsoft metadata CAB supplies the full DAT SHA-256.
+        "$OFFICEDROID_TOOLS/7zip/7zzs" e -so "$cache/$cab" "$name.hash" \
+            > "$OFFICEDROID_ROOT/.build/office/$name.hash"
+        sha=$(python3 - "$OFFICEDROID_ROOT/.build/office/$name.hash" <<'READ_HASH'
+from pathlib import Path
+import re
+import sys
+value = Path(sys.argv[1]).read_bytes().decode('utf-16le').strip().lower()
+assert re.fullmatch('[0-9a-f]{64}', value), 'Invalid Microsoft stream hash'
+print(value)
+READ_HASH
+        )
+        fetch "$base/$version/$name.dat" "$cache/$name.dat" "$sha"
+        ln -sfn "$cache/$name.dat" "$media/$version/$name.dat"
+    done
+    echo "Official Office media verified: $media"
+fi

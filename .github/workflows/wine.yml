@@ -7,6 +7,12 @@ on:
         default: '1800'
         required: true
         type: string
+      office_source:
+        description: 'Microsoft CDN or checksum-verified official media staged before installation'
+        default: cdn
+        required: true
+        type: choice
+        options: [cdn, media]
   push:
     branches: [main]
     paths:
@@ -38,7 +44,7 @@ jobs:
       matrix:
         abi: [x86_64, arm64-v8a]
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -86,6 +92,10 @@ jobs:
           else
             echo 'KVM is unavailable on this runner; testing with bounded software emulation.'
           fi
+      - name: Prepare official Office media
+        if: matrix.abi == 'x86_64' && inputs.office_source == 'media'
+        timeout-minutes: 15
+        run: ./scripts/prepare-office.sh --media
       - name: Verify Wine networking and Win32 editing on Android 16
         if: matrix.abi == 'x86_64'
         timeout-minutes: 35
@@ -105,13 +115,14 @@ jobs:
             app/build/outputs/androidTest-results/
       - name: Install official Microsoft 365 on Android
         if: matrix.abi == 'x86_64'
-        timeout-minutes: 35
+        timeout-minutes: 40
         env:
           OFFICE_INSTALL_TIMEOUT_SECONDS: ${{ inputs.office_install_timeout_seconds || '1800' }}
+          OFFICE_SOURCE: ${{ inputs.office_source || 'cdn' }}
         run: |
           source scripts/env.sh
           export ANDROID_SERIAL=emulator-5554
-          python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS"
+          python3 scripts/office-install-test.py --timeout-seconds "$OFFICE_INSTALL_TIMEOUT_SECONDS" --source "$OFFICE_SOURCE"
       - name: Verify Word, Excel and PowerPoint editing, saving and cold reopening
         if: matrix.abi == 'x86_64'
         timeout-minutes: 20

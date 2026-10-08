@@ -14,6 +14,7 @@ output = Path('.build/emulator/office-install')
 output.mkdir(parents=True, exist_ok=True)
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--timeout-seconds', type=int, default=1800)
+parser.add_argument('--source', choices=('cdn', 'media'), default='cdn')
 args = parser.parse_args()
 if args.timeout_seconds < 120:
     parser.error('--timeout-seconds must be at least 120')
@@ -100,22 +101,45 @@ def screen(name):
     return text
 
 
-result = {'office_version': '16.0.20430.20146', 'visual_cpp_version': '14.44.35211', 'installer_passed': False}
+result = {'office_version': '16.0.20430.20146', 'visual_cpp_version': '14.44.35211',
+          'source': args.source, 'installer_passed': False}
 try:
-    subprocess.run(['./scripts/prepare-office.sh'], check=True, timeout=180)
+    prepare = ['./scripts/prepare-office.sh']
+    if args.source == 'media':
+        prepare.append('--media')
+    subprocess.run(prepare, check=True, timeout=900 if args.source == 'media' else 180)
     adb('shell', 'am', 'force-stop', 'org.officedroid')
     directory = 'files/prefix/drive_c/office-setup'
     private('mkdir', '-p', directory + '/logs')
     private('rm', '-f', directory + '/exit-code.txt', directory + '/phase.txt',
             directory + '/vcredist-x64-exit.txt', directory + '/vcredist-x86-exit.txt')
-    for source in [Path('.build/office/odt/setup.exe'), Path('.build/office/odt/EULA'),
+    config = Path('runtime/office/configuration.xml')
+    if args.source == 'media':
+        tree = ET.parse(config)
+        tree.getroot().find('Add').set('SourcePath', r'C:\office-setup')
+        tree.getroot().find('Add').set('AllowCdnFallback', 'FALSE')
+        config = Path('.build/office/configuration.xml')
+        tree.write(config, encoding='utf-8', xml_declaration=True)
+    sources = [Path('.build/office/odt/setup.exe'), Path('.build/office/odt/EULA'),
                    Path('.build/office/odt/vc_redist.x64.exe'), Path('.build/office/odt/vc_redist.x86.exe'),
-                   Path('runtime/office/configuration.xml'), Path('runtime/office/install-office.cmd')]:
-        command = 'cat > ' + shlex.quote(directory + '/' + source.name)
+                   config, Path('runtime/office/install-office.cmd')]
+    files_to_stage = [(source, Path(source.name)) for source in sources]
+    if args.source == 'media':
+        media = Path('.build/office/media')
+        files_to_stage.extend((source, source.relative_to(media))
+                              for source in sorted(media.rglob('*')) if source.is_file())
+    for source, relative in files_to_stage:
+        destination = directory + '/' + relative.as_posix()
+        private('mkdir', '-p', str(Path(destination).parent))
+        command = 'cat > ' + shlex.quote(destination)
         # exec-in quotes these arguments again and does not wait for remote exit.
-        adb('shell', '-T', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command), input=source.read_bytes())
-        actual = private('sha256sum', directory + '/' + source.name).decode().split()[0]
-        expected = hashlib.sha256(source.read_bytes()).hexdigest()
+        # Stream full Office media without allocating multi-gigabyte Python buffers.
+        with source.open('rb') as stream:
+            adb('shell', '-T', 'run-as', 'org.officedroid', 'sh', '-c', shlex.quote(command),
+                stdin=stream, timeout=600)
+        actual = private('sha256sum', destination, timeout=180).decode().split()[0]
+        with source.open('rb') as stream:
+            expected = hashlib.file_digest(stream, 'sha256').hexdigest()
         assert actual == expected, f'{source.name}: staged SHA-256 {actual}, expected {expected}'
         print(f'Staged and verified {source.name}: {source.stat().st_size} bytes', flush=True)
     adb('shell', 'am', 'start', '-W', '-n', 'org.officedroid/.MainActivity')

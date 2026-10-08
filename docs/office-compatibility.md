@@ -52,8 +52,14 @@ media; it does not install or activate Office. To test that source, dispatch
 Wine Android with `office_source=media`, or use `office-install-test.py --source
 media` on an already running test emulator. The test streams the files into
 the shared prefix, verifies their device-side hashes, and supplies ODT's
-`SourcePath` with CDN fallback disabled. That Android path is not yet verified;
-the workflow defaults to `cdn`. Never package or upload this directory or its
+`SourcePath` with CDN fallback disabled. Run `37752614665` verifies every staged
+file on Android and advances through extraction in minutes. It exits 17002 at
+Office virtualization registration: OISVAPI reports RPC error 1747
+(`RPC_S_UNKNOWN_AUTHN_SERVICE`). Hardlink failures fall back to successful copies
+inside Microsoft's installer. Neither Office installation nor editing has passed.
+Installer runs include RPC traces to identify the requested authentication service.
+The workflow defaults to `media`: the CDN route spent 30 minutes on thousands of
+small range requests in run `37748550796`. Never package or upload this directory or its
 linked Microsoft files.
 
 After HTTPS and Win32 input/save/reopen checks pass, `scripts/office-install-test.py`

@@ -90,7 +90,7 @@ public class WineActivity extends Activity
             environ.put( "WINEDEBUG", "+timestamp,+pid,+tid,err+all,warn+android,warn+seh,trace+android,trace+nsi" );
             if (getIntent().getBooleanExtra( "install_office", false ))
                 // Services inherit Explorer's environment, not install-office.cmd's.
-                environ.put( "WINEDEBUG", environ.get( "WINEDEBUG" ) + ",trace+winhttp,trace+loaddll" );
+                environ.put( "WINEDEBUG", environ.get( "WINEDEBUG" ) + ",trace+winhttp,trace+loaddll,trace+rpc" );
             environ.put( "WINEDEBUGLOG", new File( getFilesDir(), "wine-gui.log" ).toString() );
             File document = new File( org.officedroid.MainActivity.prefix( this ), "drive_c/gui-smoke.txt" );
             document.getParentFile().mkdirs();

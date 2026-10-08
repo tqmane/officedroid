@@ -54,16 +54,38 @@ def diagnose():
         # threads and must not influence a successful installation measurement.
         # Android's APK path contains '='. Passing it directly to env makes it
         # another NAME=VALUE assignment, so use a shell with positional arguments.
-        command = ['timeout', '45', 'env', *environment, '/system/bin/sh', '-c', 'exec "$@"',
+        command = ['timeout', '15', 'env', *environment, '/system/bin/sh', '-c', 'exec "$@"',
                    'wine-debugger', native + '/libwine.so',
-                   r'C:\windows\system32\winedbg.exe', '--command', 'info proc\ninfo threads\nbt all']
-        try:
-            data = private(*command, timeout=55, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as error:
-            data = error.output
-        (output / 'windows-stacks.txt').write_bytes(data)
-        if b'Backtracing for thread' not in data:
-            raise RuntimeError('WineDbg did not produce thread backtraces; see windows-stacks.txt')
+                   r'C:\windows\system32\winedbg.exe', '--command']
+
+        def debug(commands):
+            try:
+                return private(*command, commands, timeout=25, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as error:
+                return error.output
+
+        listing = debug('info proc\ninfo threads')
+        (output / 'windows-processes.txt').write_bytes(listing)
+        # "bt all" crashes while formatting an unrelated Explorer frame before
+        # reaching setup. Capture each relevant thread independently instead.
+        targets = []
+        process = None
+        for line in listing.decode(errors='replace').splitlines():
+            match = re.fullmatch(r'([0-9a-fA-F]{8}) (\S+)', line)
+            if match:
+                process = match.groups()
+            elif process and process[1].lower() in ('setup.exe', 'winedevice.exe'):
+                match = re.match(r'\s+([0-9a-fA-F]{8})\s', line)
+                if match:
+                    targets.append((*process, match[1]))
+        targets.sort(key=lambda target: target[1] != 'setup.exe')
+        if not targets:
+            raise RuntimeError('WineDbg listed no installer/device threads')
+        with (output / 'windows-stacks.txt').open('wb') as stacks:
+            for pid, name, tid in targets:
+                stacks.write(f'\n{name} process {pid} thread {tid}\n'.encode())
+                stacks.write(debug(f'attach 0x{pid}\nbt 0x{tid}\ndetach'))
+                stacks.flush()
         return
     raise RuntimeError('No current APK runtime found for WineDbg')
 

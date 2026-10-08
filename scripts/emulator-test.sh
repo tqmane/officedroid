@@ -53,7 +53,9 @@ adb shell wm size 2560x1600
 adb shell wm density 240
 adb shell settings put system accelerometer_rotation 0
 adb shell settings put system user_rotation 0
-adb shell input keyevent 82
+# Injecting MENU before the cold-boot launcher has a focused window causes a
+# Quickstep input-dispatch ANR. Dismiss the keyguard without sending input.
+adb shell wm dismiss-keyguard
 exec 8>.build/android-build.lock
 flock 8
 instrumentation_status=0
